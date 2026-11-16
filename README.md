@@ -40,22 +40,53 @@ python -m http.server 8080
 # abre http://localhost:8080
 ```
 
-## Publicar en Firebase Hosting
+## Firebase (proyecto `agente-arq`)
+
+La app usa tres servicios del plan gratuito Spark:
+
+| Servicio | Para qué |
+|---|---|
+| **Hosting** | Publica la página. También entrega la configuración en `/__/firebase/init.json`, así que no hay claves en el código. |
+| **Authentication** | Inicio de sesión con Google o correo y contraseña. |
+| **Firestore** | Proyectos, normativas propias y planos de fondo de cada usuario (`users/{uid}/...`). Las reglas de `firestore.rules` impiden ver datos ajenos. |
+| **AI Logic** (opcional) | Lectura de normativas en PDF con Gemini (Gemini Developer API). |
+
+Los planos de fondo se guardan en Firestore partidos en bloques de 800 KB, así no se necesita Cloud Storage (que hoy exige el plan Blaze).
+
+### Configuración en la consola (una sola vez)
+
+1. **Registrar la app web**: Configuración del proyecto → Tus apps → icono `</>` → nombre "Trazo MEP". No hace falta copiar el `firebaseConfig`.
+2. **Authentication** → Comenzar → Método de acceso → habilitar **Google** y **Correo electrónico/contraseña**.
+3. **Firestore Database** → Crear base de datos → edición Standard → ubicación `southamerica-east1` (São Paulo) → modo producción.
+4. **AI Logic** (opcional) → Comenzar → **Gemini Developer API**. El modelo se cambia en `public/js/cloud.js` (`AI_MODEL`).
+
+### Publicar
 
 ```bash
-npm install -g firebase-tools
-firebase login
-firebase use --add          # elige tu proyecto y ponle alias "default"
-firebase deploy --only hosting
+firebase use default          # agente-arq
+firebase deploy               # publica hosting y reglas de Firestore
 ```
+
+La app queda en `https://agente-arq.web.app`.
+
+### Probar en local con la configuración real
+
+```bash
+firebase serve --only hosting
+# abre http://localhost:5000
+```
+
+`firebase serve` entrega `/__/firebase/init.json`; con `python -m http.server` la app funciona igual pero sin cuentas ni nube.
 
 ### Despliegue automático desde GitHub
 
-El flujo `.github/workflows/firebase-hosting-merge.yml` publica en cada push a `main`. Para activarlo, crea el secreto `FIREBASE_SERVICE_ACCOUNT` en el repositorio (Settings → Secrets and variables → Actions). La forma más simple es ejecutar `firebase init hosting:github`, que crea la cuenta de servicio y el secreto por ti.
+`.github/workflows/firebase-hosting-merge.yml` publica en cada push a `main`. Ejecuta `firebase init hosting:github`, elige el repositorio y responde **No** cuando pregunte si sobrescribe el workflow. Ese comando crea el secreto `FIREBASE_SERVICE_ACCOUNT`.
 
 ## Datos
 
-Los proyectos y normativas propias se guardan en el navegador (localStorage). Usa **Exportar JSON** para respaldarlos o moverlos entre equipos.
+- Sin sesión: los proyectos se guardan en el navegador (localStorage).
+- Con sesión: se guardan en Firestore y se abren desde cualquier equipo. En **Proyectos**, el botón **Subir a la nube** pasa los proyectos locales a la cuenta.
+- **Exportar JSON** sirve como respaldo en ambos casos.
 
 ---
 

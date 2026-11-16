@@ -1,0 +1,20 @@
+rules_version = '2';
+
+// Trazo MEP · cada usuario solo puede leer y escribir sus propios datos:
+//   users/{uid}/proyectos/{id}    proyectos (JSON del plano y parámetros)
+//   users/{uid}/normativas/{id}   normativas propias
+//   users/{uid}/fondos/{id}       planos de fondo partidos en bloques
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/{coleccion}/{docId} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && coleccion in ['proyectos', 'normativas', 'fondos'];
+    }
+    // Todo lo demás queda cerrado.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

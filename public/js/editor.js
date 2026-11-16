@@ -20,21 +20,22 @@ async function initCaps(){if(!window.claude||!window.claude.use)return;
 
 /* ---------- almacenamiento ---------- */
 const store={
- async listProjects(){const db=ST.caps.db;let out=[];
+ async listProjects(){const db=ST.caps.db;let out=[];const cl=CLD();if(cl){try{out=(await cl.listProjects()).map(d=>({id:d.id,nombre:d.nombre,actualizado:d.actualizado,json:d.json,src:'nube'}))}catch(e){toast(e.message,5000)}}
   if(db){try{const s=await withTimeout(db.collection('proyectos').get());out=s.docs.map(d=>{const x=d.data();return {id:d.id,nombre:x.nombre,actualizado:x.actualizado,json:x.json,src:'nube'}})}catch(e){}}
   const loc=LS.get('trazo.proyectos',{});for(const id in loc)if(!out.some(o=>o.id===id))out.push({id,nombre:loc[id].nombre,actualizado:loc[id].actualizado,json:loc[id].json,src:'local'});
   return out.sort((a,b)=>(b.actualizado||0)-(a.actualizado||0))},
- async saveProject(P){const json=JSON.stringify(P),rec={nombre:P.nombre,actualizado:Date.now(),json};let where='este navegador';
+ async saveProject(P){const json=JSON.stringify(P),rec={nombre:P.nombre,actualizado:Date.now(),json};let where='este navegador';const cl=CLD();if(cl){await cl.saveProject(P);LS.set('trazo.last',P.id);return 'tu cuenta en la nube'}
   const db=ST.caps.db;if(db){try{await withTimeout(db.collection('proyectos').doc(P.id).set(rec));where='la nube del artifact'}catch(e){}}
   const loc=LS.get('trazo.proyectos',{});loc[P.id]=rec;if(!LS.set('trazo.proyectos',loc)&&where==='este navegador')throw new Error('sin espacio');
   LS.set('trazo.last',P.id);return where},
- async deleteProject(id){const db=ST.caps.db;if(db){try{await withTimeout(db.collection('proyectos').doc(id).delete())}catch(e){}}const loc=LS.get('trazo.proyectos',{});delete loc[id];LS.set('trazo.proyectos',loc)},
- async listNorms(){const db=ST.caps.db;let out=[];
+ async deleteProject(id){const db=ST.caps.db;const cl=CLD();if(cl){try{await cl.deleteProject(id)}catch(e){toast(e.message,5000)}}if(db){try{await withTimeout(db.collection('proyectos').doc(id).delete())}catch(e){}}const loc=LS.get('trazo.proyectos',{});delete loc[id];LS.set('trazo.proyectos',loc)},
+ async listNorms(){const db=ST.caps.db;let out=[];const cl=CLD();if(cl){try{out=await cl.listNorms()}catch(e){toast(e.message,5000)}}
   if(db){try{const s=await withTimeout(db.collection('normativas').get());out=s.docs.map(d=>{try{return JSON.parse(d.data().json)}catch(e){return null}}).filter(Boolean)}catch(e){}}
   const loc=LS.get('trazo.normas',{});for(const id in loc)if(!out.some(o=>o.id===id))out.push(loc[id]);return out},
- async saveNorm(N){const db=ST.caps.db;let where='este navegador';if(db){try{await withTimeout(db.collection('normativas').doc(N.id).set({nombre:N.nombre,actualizado:Date.now(),json:JSON.stringify(N)}));where='la nube del artifact'}catch(e){}}
+ async saveNorm(N){const db=ST.caps.db;let where='este navegador';const cl=CLD();if(cl){await cl.saveNorm(N);return 'tu cuenta en la nube'}if(db){try{await withTimeout(db.collection('normativas').doc(N.id).set({nombre:N.nombre,actualizado:Date.now(),json:JSON.stringify(N)}));where='la nube del artifact'}catch(e){}}
   const loc=LS.get('trazo.normas',{});loc[N.id]=N;LS.set('trazo.normas',loc);return where},
- async deleteNorm(id){const db=ST.caps.db;if(db){try{await withTimeout(db.collection('normativas').doc(id).delete())}catch(e){}}const loc=LS.get('trazo.normas',{});delete loc[id];LS.set('trazo.normas',loc)}};
+ async deleteNorm(id){const db=ST.caps.db;const cl=CLD();if(cl){try{await cl.deleteNorm(id)}catch(e){toast(e.message,5000)}}if(db){try{await withTimeout(db.collection('normativas').doc(id).delete())}catch(e){}}const loc=LS.get('trazo.normas',{});delete loc[id];LS.set('trazo.normas',loc)}};
+const CLD=()=>{const c=window.TrazoCloud;return c&&c.available&&c.user()?c:null};
 function withTimeout(p,ms=10000){return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))])}
 
 async function download(filename,data,mime){const dl=ST.caps.downloads;const blob=data instanceof Blob?data:new Blob([data],{type:mime||'text/plain'});
@@ -72,6 +73,7 @@ $('#btnSave').addEventListener('click',saveProject);
 async function saveProject(){const P=clone(ST.P);delete P.example;
  // fondos: subir a assets si es posible
  for(const l of P.levels){if(!l.bg||!l.bg.src||l.bg.src.startsWith('builtin:')||!l.bg.src.startsWith('data:'))continue;
+  if(CLD()){try{toast('Subiendo el plano de fondo…',8000);const small=await shrinkImage(l.bg.src,3000,0.72);const key=await CLD().saveBg(P.id,l.id,small);const live=ST.P.levels.find(x=>x.id===l.id);const im=ST.imgs[live.bg.src];live.bg.src='cloud:'+key;l.bg.src='cloud:'+key;if(im)ST.imgs['cloud:'+key]=im;continue}catch(e){toast('No se pudo subir el fondo: '+e.message,6000)}}
   if(ST.caps.assets){try{const blob=await (await fetch(l.bg.src)).blob();const up=await ST.caps.assets.upload(blob);const live=ST.P.levels.find(x=>x.id===l.id);live.bg.src=up.url;l.bg.src=up.url;ST.imgs={};continue}catch(e){}}
   if(l.bg.src.length>1500000){l.bg.src='';toast('El fondo es muy pesado para guardarse aquí; vuelve a subirlo al abrir el proyecto.',5000)}}
  try{const where=await store.saveProject(P);ST.P.example=false;ST.dirty=false;$('#saveSt').textContent='guardado';toast('Proyecto guardado en '+where)}catch(e){toast('No se pudo guardar: '+e.message)}}
@@ -125,7 +127,10 @@ function levelBounds(l){let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;co
 function fitView(){resizeEd();const l=curLv();if(!l)return;const [x0,y0,x1,y1]=levelBounds(l),W=cv.width,H=cv.height,pad=40*DPR;
  const k=Math.min((W-2*pad)/Math.max(1,x1-x0),(H-2*pad)/Math.max(1,y1-y0));ST.cam.k=k;ST.cam.ox=(W-(x1-x0)*k)/2-x0*k;ST.cam.oy=(H-(y1-y0)*k)/2-y0*k}
 function zoomAt(f,sx,sy){if(sx===undefined){sx=cv.width/2;sy=cv.height/2}const [mx,my]=S2M(sx,sy);ST.cam.k=Math.max(2*DPR,Math.min(600*DPR,ST.cam.k*f));ST.cam.ox=sx-mx*ST.cam.k;ST.cam.oy=sy-my*ST.cam.k;drawEd()}
-function bgImg(l){if(!l.bg||!l.bg.src)return null;const src=BUILTIN_BG[l.bg.src]||l.bg.src;let im=ST.imgs[src];if(!im){im=new Image();im.onload=()=>{drawEd()};im.src=src;ST.imgs[src]=im}return im}
+async function shrinkImage(url,max,q){const im=new Image();await new Promise((res,rej)=>{im.onload=res;im.onerror=rej;im.src=url});const f=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight));if(f>=1&&url.startsWith('data:image/jpeg')&&url.length<2500000)return url;
+ const c=document.createElement('canvas');c.width=Math.round(im.naturalWidth*f);c.height=Math.round(im.naturalHeight*f);const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);return c.toDataURL('image/jpeg',q)}
+function bgImg(l){if(!l.bg||!l.bg.src)return null;if(l.bg.src.startsWith('cloud:')){const k=l.bg.src;if(ST.imgs[k])return ST.imgs[k];const im=new Image();ST.imgs[k]=im;const cl=CLD();if(cl)cl.loadBg(k.slice(6)).then(u=>{im.onload=()=>{drawEd();if(ST.view==='modelo'&&ST.R)show3D(true)};im.src=u}).catch(()=>{delete ST.imgs[k]});else delete ST.imgs[k];return im}
+ const src=BUILTIN_BG[l.bg.src]||l.bg.src;let im=ST.imgs[src];if(!im){im=new Image();im.onload=()=>{drawEd()};im.src=src;ST.imgs[src]=im}return im}
 
 /* dibujo */
 function drawEd(){if(!ST.P||ST.view!=='plano')return;resizeEd();const l=curLv();const W=cv.width,H=cv.height,k=ST.cam.k;ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,W,H);
@@ -309,3 +314,30 @@ async function renderPdfPage(){const p=ST.pdf,l=ST.P.levels.find(x=>x.id===p.lv)
  // escala inicial suponiendo 1:50 (puntos PDF a 72 ppp)
  const pxPerM=sc*72/0.0254/50;l.bg={src:url,pxPerM,ox:0,oy:0,op:0.6,show:true};afterBg(true)}
 function afterBg(pdf){markDirty();ST.imgs={};renderSide();setTimeout(()=>{fitView();drawEd()},60);toast(pdf?'Plano cargado con escala 1:50 supuesta. Calíbralo con una cota conocida para mayor precisión.':'Imagen cargada. Calíbrala con una cota conocida.',6000)}
+
+/* ---------- Cuenta (Firebase) ---------- */
+function renderUser(){const b=$('#btnUser');const c=window.TrazoCloud;if(!b)return;if(!c||!c.available){b.hidden=true;return}b.hidden=false;const u=c.user();
+ b.textContent=u?((u.displayName||u.email||'Cuenta').split(' ')[0]):'Iniciar sesión';b.title=u?`Sesión: ${u.email||''}`:'Inicia sesión para guardar en la nube';b.classList.toggle('primary',false)}
+function authModal(mode='in',msg=''){const c=window.TrazoCloud;if(!c||!c.available)return;const u=c.user();
+ if(u){showModal(`<h3>Tu cuenta</h3><p>${esc(u.displayName||'')}<br><span class="hint">${esc(u.email||'')}</span></p><p class="hint">Tus proyectos, planos de fondo y normativas propias se guardan en Firebase (${esc(c.projectId)}) y solo tú puedes verlos.</p><div class="row"><button class="btn" data-auth="out" type="button">Cerrar sesión</button><button class="btn" data-act="mclose" type="button">Cerrar</button></div>`);return}
+ const T={in:['Iniciar sesión','Entrar'],up:['Crear cuenta','Crear cuenta'],reset:['Recuperar contraseña','Enviar enlace']}[mode];
+ showModal(`<h3>${T[0]}</h3>${msg?`<p class="hint" style="color:var(--bad)">${esc(msg)}</p>`:''}
+  ${mode!=='reset'?`<button class="btn" data-auth="google" type="button" style="justify-content:center">Continuar con Google</button><p class="hint" style="text-align:center;margin:0">o con tu correo</p>`:''}
+  <form id="authForm" style="display:flex;flex-direction:column;gap:8px">${mode==='up'?'<label class="f">Nombre<input type="text" id="aName" autocomplete="name"></label>':''}
+  <label class="f">Correo<input type="text" id="aMail" inputmode="email" autocomplete="email" required></label>
+  ${mode!=='reset'?`<label class="f">Contraseña<input type="password" id="aPass" autocomplete="${mode==='up'?'new-password':'current-password'}" required minlength="6" style="background:var(--plan);border:1px solid var(--line2);border-radius:6px;padding:5px 8px;color:var(--fg)"></label>`:''}
+  <button class="btn primary" type="submit" style="justify-content:center">${T[1]}</button></form>
+  <div class="row" style="justify-content:space-between">${mode==='in'?'<button class="btn sm" data-auth="m-up" type="button">Crear una cuenta</button><button class="btn sm" data-auth="m-reset" type="button">Olvidé mi contraseña</button>':'<button class="btn sm" data-auth="m-in" type="button">Ya tengo cuenta</button>'}<button class="btn sm" data-act="mclose" type="button">Cancelar</button></div>`);
+ $('#authForm').dataset.mode=mode}
+document.addEventListener('submit',async e=>{if(e.target.id!=='authForm')return;e.preventDefault();const c=window.TrazoCloud,mode=e.target.dataset.mode,mail=$('#aMail').value.trim();
+ const btn=e.target.querySelector('[type=submit]');btn.disabled=true;
+ try{if(mode==='in')await c.signInEmail(mail,$('#aPass').value);else if(mode==='up')await c.signUpEmail(mail,$('#aPass').value,($('#aName')||{}).value);else{await c.resetPassword(mail);toast('Te enviamos un enlace para cambiar la contraseña.',6000)}
+  $('#modal').hidden=true}catch(err){authModal(mode,err.message)}});
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-auth]');if(!b)return;const c=window.TrazoCloud,a=b.dataset.auth;
+ if(a==='google'){try{await c.signInGoogle();$('#modal').hidden=true}catch(err){authModal('in',err.message)}}
+ if(a==='out'){await c.signOut();$('#modal').hidden=true;toast('Sesión cerrada')}
+ if(a.startsWith('m-'))authModal(a.slice(2))});
+window.addEventListener('trazo-cloud',()=>{const c=window.TrazoCloud;renderUser();if(!c.available){if(c.error)console.warn(c.error);return}
+ let first=true;c.onAuth(async u=>{renderUser();await loadNorms();if(ST.view==='proyectos')renderProjects();if(ST.view==='normas')renderNormas();
+  if(u&&!first)toast(`Sesión iniciada: ${u.email||u.displayName}`);
+  if(u&&ST.P&&ST.P.example){const last=ST.bootLast&&ST.bootLast!=='ejemplo-mutilla'?ST.bootLast:null;ST.bootLast=null;if(last){try{const list=await c.listProjects();const p=list.find(x=>x.id===last);if(p)setProject(JSON.parse(p.json))}catch(e){}}}first=false})});

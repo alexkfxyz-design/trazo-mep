@@ -21,7 +21,7 @@
     </div>
     <div class="pinfo"><input id="pname" type="text" aria-label="Nombre del proyecto"><input id="ploc" type="text" aria-label="Ubicación" style="background:transparent;border:0"></div>
     <label class="normpick">Normativa activa<select id="normSel"></select></label>
-    <div class="acts"><span id="saveSt"></span><button class="btn" id="btnSave" type="button">Guardar</button><button class="btn primary" id="btnCalc" type="button">▶ Calcular instalaciones</button></div>
+    <div class="acts"><span id="saveSt"></span><button class="btn" id="btnUser" type="button" hidden onclick="authModal()">Iniciar sesión</button><button class="btn" id="btnSave" type="button">Guardar</button><button class="btn primary" id="btnCalc" type="button">▶ Calcular instalaciones</button></div>
   </header>
   <nav class="tabs" role="tablist" id="tabs">
     <button class="tab" role="tab" data-v="plano">Plano y ambientes</button>
@@ -98,5 +98,6 @@
 <script src="js/editor.js"></script>
 <script src="js/visor3d.js"></script>
 <script src="js/app.js"></script>
+<script type="module" src="js/cloud.js"></script>
 </body>
 </html>

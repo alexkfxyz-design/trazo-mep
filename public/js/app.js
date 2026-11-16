@@ -1,0 +1,203 @@
+/* ================= Trazo MEP · interfaz (resultados, normativas, proyectos) ================= */
+const SYS_COL={drain:'--drain',water:'--cold',power:'--power',vent:'--vent',fire:'--fire'};
+const STL={ok:'Cumple',fix:'Corregido',info:'Informativo',warn:'Advertencia',fail:'No cumple'};
+const sysName=k=>k==='coord'?'Coordinación':(SYS.find(s=>s.key===k)||{}).short||k;
+
+/* ---------- Vista de agentes ---------- */
+function renderCalc(anim=true){const box=$('#calc');const R=ST.R;
+ if(!R){box.innerHTML=`<div class="card"><h3>Los agentes aún no han trabajado en este proyecto</h3><p class="hint">Dibuja o revisa el plano y presiona <b>Calcular instalaciones</b>. Cinco agentes trazarán en paralelo desagüe, agua, electricidad, ventilación e incendio con los parámetros de la normativa activa; luego el coordinador resuelve los cruces entre sistemas.</p><div class="row"><button class="btn primary" data-act="calc" type="button">▶ Calcular instalaciones</button></div></div>`;return}
+ const N=normById(R.norm);const lvs=ST.P.levels.slice().sort((a,b)=>a.elev-b.elev);
+ const total=Object.values(R.ev).reduce((a,b)=>a+b,0);
+ box.innerHTML=`<div class="card"><div class="coordc"><div style="display:flex;flex-direction:column;gap:10px"><div class="row"><h3>Coordinador</h3><span class="hint">${esc(N.nombre)}</span><span class="pillst" id="cst" style="margin-left:auto">en espera</span></div>
+  <div class="bars">${SYS.map(s=>{const n=R.checks.filter(c=>c.sys===s.key).length;return `<div class="bar-row"><span class="row" style="gap:7px;flex-wrap:nowrap"><span class="sw" style="background:var(${SYS_COL[s.key]})"></span>Agente ${s.n} · ${s.short}</span><div class="bar"><i id="bar-${s.key}" style="background:var(${SYS_COL[s.key]})"></i></div><span class="v" id="bv-${s.key}">0 / ${n}</span></div>`}).join('')}</div>
+  <div class="big"><b id="totev">0</b><span>estados de ruta evaluados por los agentes</span></div></div>
+  <div style="display:flex;flex-direction:column;gap:6px;min-width:0"><h4>Bitácora</h4><div class="log" id="clog"></div></div></div></div>
+  ${SYS.map(s=>{const ck=R.checks.filter(c=>c.sys===s.key);return `<div class="card agent" id="ag-${s.key}"><div class="info"><div class="hd"><span class="sw" style="background:var(${SYS_COL[s.key]})"></span>Agente ${s.n} · ${s.name}<span class="st" id="st-${s.key}">en espera</span></div>
+   <span class="hint mono">${esc(N[{drain:'desague',water:'agua',power:'elec',vent:'vent',fire:'incendio'}[s.key]].ref)}</span>
+   <div class="s1" id="s1-${s.key}">—</div><div class="s2" id="s2-${s.key}">—</div>
+   <div class="segs" id="sg-${s.key}">${ck.map(c=>`<span data-st="${c.st}" title="${esc(c.name)}"></span>`).join('')}</div><span class="hint mono" id="ck-${s.key}">0 / ${ck.length} verificaciones</span></div>
+   <div class="strips">${lvs.map(l=>`<div class="strip"><small>${esc(l.name)}</small><canvas data-sys="${s.key}" data-lv="${l.id}"></canvas></div>`).join('')}</div></div>`}).join('')}`;
+ $$('#calc canvas').forEach(c=>{const l=ST.P.levels.find(x=>x.id===c.dataset.lv);const b=stripBounds(l);const rot=(b[3]-b[1])>(b[2]-b[0])*1.3;const w=rot?b[3]-b[1]:b[2]-b[0],h=rot?b[2]-b[0]:b[3]-b[1];c.style.aspectRatio=`${w} / ${h}`;c._b=b;c._rot=rot});
+ cancelAnimationFrame(ST.anim);const t0=performance.now(),D=RM||!anim?0:1;const dur=SYS.map((s,i)=>({s:0.15*i,d:2.4+0.3*i}));const logs=R.logs.map((l,i)=>({...l,at:0.5+i*0.32}));let shown=0;
+ const step=now=>{const t=(now-t0)/1000*(D?1:1e6);let all=true,tot=0;
+  SYS.forEach((s,i)=>{const {s:st,d}=dur[i];const p=Math.max(0,Math.min(1,(t-st)/d));if(p<1)all=false;tot+=Math.round(R.ev[s.key]*p);
+   $('#bar-'+s.key).style.width=(p*100)+'%';const ck=R.checks.filter(c=>c.sys===s.key);const nck=Math.floor(ck.length*Math.max(0,(p-0.55)/0.45));
+   $('#bv-'+s.key).textContent=`${p>=1?'✓ ':''}${nck} / ${ck.length}`;$('#ck-'+s.key).textContent=`${nck} / ${ck.length} verificaciones`;
+   [...$('#sg-'+s.key).children].forEach((x,j)=>x.className=j<nck?x.dataset.st:'');
+   const stEl=$('#st-'+s.key);stEl.textContent=p<=0?'en espera':p<0.55?'buscando recorridos':p<1?'dimensionando':'listo';stEl.className='st'+(p>=1?' ok':p>0?' on':'');
+   if(p>0.55){$('#s1-'+s.key).textContent=R.stats[s.key][0];$('#s2-'+s.key).textContent=R.stats[s.key][1]}
+   $$(`#ag-${s.key} canvas`).forEach(c=>drawStrip(c,s.key,p))});
+  $('#totev').textContent=tot.toLocaleString('es-PE');
+  while(shown<logs.length&&logs[shown].at<=t){shown++}$('#clog').innerHTML=logs.slice(Math.max(0,shown-8),shown).map(l=>`<div><span style="color:var(${SYS_COL[l.sys]||'--fg'})">●</span> ${esc(l.t)}</div>`).join('');
+  const cst=$('#cst');if(all){cst.textContent=`✓ ${R.ok} cumplen · ${R.warn} advertencias · ${R.fail} no cumplen`;cst.className='pillst '+(R.fail?'bad':R.warn?'warn':'ok');
+   if(ST.autoNav&&D){ST.autoNav=false;setTimeout(()=>{if(ST.view==='calculo')showView('modelo')},900)}return}
+  cst.textContent='agentes trabajando';cst.className='pillst';ST.anim=requestAnimationFrame(step)};
+ ST.anim=requestAnimationFrame(step)}
+function stripBounds(l){const b=levelBounds(l);return [b[0]-0.4,b[1]-0.4,b[2]+0.4,b[3]+0.4]}
+function drawStrip(c,sys,p){const R=ST.R,l=ST.P.levels.find(x=>x.id===c.dataset.lv);const r=c.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);const W=Math.round(r.width*dpr),H=Math.round(r.height*dpr);if(W<2)return;if(c.width!==W||c.height!==H){c.width=W;c.height=H}
+ const x=c.getContext('2d'),b=c._b,rot=c._rot;const bw=rot?b[3]-b[1]:b[2]-b[0];const k=W/bw;
+ const T=(px,py)=>rot?[(py-b[1])*k,(b[2]-px)*k]:[(px-b[0])*k,(py-b[1])*k];x.clearRect(0,0,W,H);
+ x.strokeStyle='rgba(176,192,208,.5)';x.lineWidth=1.2*dpr;l.rooms.forEach(rm=>{const a=T(rm.x0,rm.y0),bb=T(rm.x1,rm.y1);x.strokeRect(Math.min(a[0],bb[0]),Math.min(a[1],bb[1]),Math.abs(bb[0]-a[0]),Math.abs(bb[1]-a[1]))});
+ x.fillStyle='rgba(219,228,236,.25)';l.fixtures.forEach(f=>{const [px,py]=T(f.x,f.y);x.fillRect(px-2*dpr,py-2*dpr,4*dpr,4*dpr)});
+ const ents=R.D2[sys].filter(e=>e.lv===l.id);const routes=ents.filter(e=>e.route),segs=ents.filter(e=>!e.route);
+ const ph1=Math.min(1,p/0.6);const Ltot=routes.reduce((a,e)=>a+e.route.length,0);let lim=Ltot*ph1,tip=null;
+ x.lineCap='round';x.lineJoin='round';
+ if(p<1){x.globalAlpha=0.55;for(const e of routes){if(lim<=0)break;const n=Math.min(e.route.length,Math.ceil(lim));x.strokeStyle=NET_COLOR(e.k);x.lineWidth=1.4*dpr;x.beginPath();for(let i=0;i<n;i++){const q=T(...e.route[i]);i?x.lineTo(...q):x.moveTo(...q)}x.stroke();tip=T(...e.route[n-1]);lim-=e.route.length}x.globalAlpha=1}
+ if(p>0.6){x.globalAlpha=Math.min(1,(p-0.6)/0.25);for(const e of segs){x.strokeStyle=NET_COLOR(e.k);x.lineWidth=(e.k==='drain'?Math.max(1.6,e.d/38):e.k==='vent'?3:e.k==='power'?1.1:1.8)*dpr;const a=T(...e.a),bb=T(...e.b);x.beginPath();x.moveTo(...a);x.lineTo(...bb);x.stroke()}
+  R.nodes.filter(n=>n.sys===sys&&n.lv===l.id).forEach(n=>{const [px,py]=T(n.x,n.y);x.fillStyle=n.k==='pt'?'#dbe4ec':css(SYS_COL[sys]);x.beginPath();x.arc(px,py,(n.k==='pt'?3.5:2.3)*dpr,0,7);x.fill()});x.globalAlpha=1}
+ if(tip&&p<0.6){x.fillStyle=css(SYS_COL[sys]);x.beginPath();x.arc(tip[0],tip[1],3.5*dpr,0,7);x.fill()}}
+
+/* ---------- Verificaciones ---------- */
+const VF={sys:'all',st:'all'};
+function compareStats(A,B){const rows=[];if(!A||!B)return rows;const t=(a,b,l)=>{if(a!==b)rows.push([l,a,b])};
+ t(`Ø${A.totals.drain.dMain}`,`Ø${B.totals.drain.dMain}`,'Colector de desagüe');t(`${fmt(A.totals.drain.depth)} m`,`${fmt(B.totals.drain.depth)} m`,'Profundidad en la salida');t(`${A.totals.drain.vents}`,`${B.totals.drain.vents}`,'Ventilaciones individuales');
+ t(`${fmt(A.totals.water.pmin,1)} m.c.a.`,`${fmt(B.totals.water.pmin,1)} m.c.a.`,'Presión mínima');t(`${A.totals.power.circ}`,`${B.totals.power.circ}`,'Circuitos eléctricos');t(`${A.totals.power.tomas}`,`${B.totals.power.tomas}`,'Tomacorrientes');
+ t(`${fmt(A.totals.power.cable,0)} m`,`${fmt(B.totals.power.cable,0)} m`,'Conductor eléctrico');t(`${A.totals.power.brMain} A`,`${B.totals.power.brMain} A`,'Interruptor general');t(`${A.totals.fire.heads}`,`${B.totals.fire.heads}`,'Rociadores');t(`${A.totals.fire.det}`,`${B.totals.fire.det}`,'Detectores');
+ t(`${A.ok} / ${A.checks.length}`,`${B.ok} / ${B.checks.length}`,'Verificaciones que cumplen');return rows}
+function renderVerif(){const box=$('#verif'),R=ST.R;if(!R||R.error){box.innerHTML=`<div class="card"><h3>Sin verificaciones todavía</h3><p class="hint">Calcula las instalaciones para revisar cada exigencia de la normativa activa.</p><div class="row"><button class="btn primary" data-act="calc" type="button">▶ Calcular instalaciones</button></div></div>`;return}
+ const N=normById(R.norm);const list=R.checks.filter(c=>(VF.sys==='all'||c.sys===VF.sys)&&(VF.st==='all'||(VF.st==='ok'?['ok','fix','info'].includes(c.st):c.st===VF.st)));
+ const diff=ST.prevR?compareStats(ST.prevR,R):[];
+ box.innerHTML=`<div class="card"><div class="row"><h3>Verificaciones · ${esc(N.nombre)}</h3><span class="hint" style="margin-left:auto">${R.checks.length} revisiones automáticas</span></div>
+  <div class="kpis"><div class="kpi"><b class="st-ok">${R.ok}</b><span>cumplen (incluye ${R.checks.filter(c=>c.st==='fix').length} corregidas por los agentes)</span></div><div class="kpi"><b class="st-warn">${R.warn}</b><span>advertencias</span></div><div class="kpi"><b class="st-fail">${R.fail}</b><span>no cumplen</span></div><div class="kpi"><b>${R.fixes.length}</b><span>correcciones aplicadas</span></div></div>
+  ${diff.length?`<div><h4>Cambios respecto de ${esc(normById(ST.prevR.norm).nombre)}</h4><div class="diff">${diff.map(([l,a,b])=>`<div><span>${l}</span><b>${esc(a)} → ${esc(b)}</b></div>`).join('')}</div></div>`:''}
+  <div class="row"><div class="chips">${[['all','Todos'],...SYS.map(s=>[s.key,s.short]),['coord','Coordinación']].map(([k,n])=>`<button class="chip" type="button" data-vfs="${k}" aria-pressed="${VF.sys===k}">${n}</button>`).join('')}</div>
+   <div class="chips">${[['all','Todos'],['ok','Cumple'],['warn','Advertencia'],['fail','No cumple']].map(([k,n])=>`<button class="chip" type="button" data-vft="${k}" aria-pressed="${VF.st===k}">${n}</button>`).join('')}</div></div>
+  <div class="tbl-wrap"><table><thead><tr><th>Estado</th><th>Sistema</th><th>Exigencia</th><th>Elemento</th><th>Valor calculado</th><th>Límite</th><th>Referencia</th></tr></thead><tbody>
+  ${list.map(c=>`<tr><td class="st-${c.st}">${c.st==='fail'?'✕':c.st==='warn'?'!':c.st==='fix'?'↻':'✓'} ${STL[c.st]}</td><td>${sysName(c.sys)}</td><td>${esc(c.name)}</td><td>${esc(c.where)}</td><td class="n">${esc(c.val)}</td><td class="n">${esc(c.lim)}</td><td class="hint">${esc(c.ref)}</td></tr>`).join('')||'<tr><td colspan="7" class="hint">Ninguna verificación con este filtro.</td></tr>'}</tbody></table></div></div>
+  <div class="card"><h3>Correcciones aplicadas por los agentes</h3>${R.fixes.length?`<div class="diff">${R.fixes.map(f=>`<div><span>${esc(f.t)}</span><b style="color:var(${SYS_COL[f.sys]||'--fg'})">${sysName(f.sys)}</b></div>`).join('')}</div>`:'<p class="hint">No fue necesario corregir nada.</p>'}</div>`}
+$('#verif').addEventListener('click',e=>{const b=e.target.closest('[data-vfs],[data-vft]');if(!b)return;if(b.dataset.vfs)VF.sys=b.dataset.vfs;else VF.st=b.dataset.vft;renderVerif()});
+
+/* ---------- Metrados ---------- */
+function renderBom(){const box=$('#bom'),R=ST.R;if(!R||R.error){box.innerHTML=`<div class="card"><h3>Sin metrados todavía</h3><p class="hint">Los metrados y el cuadro de cargas se generan al calcular las instalaciones.</p><div class="row"><button class="btn primary" data-act="calc" type="button">▶ Calcular instalaciones</button></div></div>`;return}
+ const T=R.totals;
+ box.innerHTML=`<div class="card"><div class="row"><h3>Metrados · ${esc(ST.P.nombre)}</h3><div class="row" style="margin-left:auto"><button class="btn sm" data-ex="bom" type="button">CSV de metrados</button><button class="btn sm" data-ex="circ" type="button">CSV de circuitos</button><button class="btn sm" data-ex="rep" type="button">Informe HTML</button><button class="btn sm" data-ex="json" type="button">Proyecto JSON</button></div></div>
+  <div class="kpis"><div class="kpi"><b>${fmt(T.drain.len,1)} m</b><span>desagüe y ventilación</span></div><div class="kpi"><b>${fmt(T.water.lc+T.water.lh,1)} m</b><span>agua fría y caliente</span></div><div class="kpi"><b>${fmt(T.power.cable,0)} m</b><span>conductor en ${T.power.circ} circuitos</span></div><div class="kpi"><b>${fmt(T.power.dem/1000,2)} kW</b><span>demanda máxima · general ${T.power.brMain} A</span></div><div class="kpi"><b>${T.vent.n}</b><span>extractores</span></div><div class="kpi"><b>${T.fire.heads}/${T.fire.det}</b><span>rociadores / detectores</span></div></div>
+  <div class="tbl-wrap"><table><thead><tr><th>Partida</th><th>Especificación</th><th>Unidad</th><th style="text-align:right">Cantidad</th></tr></thead><tbody>
+  ${SYS.map(s=>{const it=R.bom.filter(b=>b.sys===s.key);if(!it.length)return'';return `<tr class="grp"><td colspan="4"><span class="sw" style="background:var(${SYS_COL[s.key]});margin-right:8px"></span>${s.name}</td></tr>`+it.map(b=>`<tr><td>${esc(b.item)}</td><td>${esc(b.spec)}</td><td>${b.unit}</td><td class="n">${b.unit==='m'?fmt(b.qty*1.05,1):fmt(b.qty,0)}</td></tr>`).join('')}).join('')}</tbody></table></div>
+  <p class="hint">Las longitudes incluyen 5 % de desperdicio. Los accesorios se cuentan sobre el trazado calculado.</p></div>
+  <div class="card"><h3>Cuadro de cargas</h3><div class="tbl-wrap"><table><thead><tr><th>Circuito</th><th>Nivel</th><th>Descripción</th><th style="text-align:right">Puntos</th><th style="text-align:right">Carga</th><th style="text-align:right">Tensión</th><th style="text-align:right">Corriente</th><th style="text-align:right">Conductor</th><th style="text-align:right">Protección</th><th style="text-align:right">Longitud</th><th style="text-align:right">ΔV</th></tr></thead><tbody>
+  ${R.circuits.map(c=>`<tr><td class="mono">${c.id}</td><td>${esc(c.lv)}</td><td>${esc(c.desc)}</td><td class="n">${c.pts}</td><td class="n">${fmt(c.va,0)} VA</td><td class="n">${c.V} V</td><td class="n">${fmt(c.I,1)} A</td><td class="n">${c.s} mm²</td><td class="n">${c.br} A</td><td class="n">${fmt(c.len,1)} m</td><td class="n ${c.vd>normById(R.norm).elec.caida_max?'st-fail':''}">${fmt(c.vd,2)} %</td></tr>`).join('')}
+  <tr class="grp"><td colspan="4">Total instalado ${fmt(T.power.va/1000,2)} kVA · demanda ${fmt(T.power.dem/1000,2)} kW</td><td colspan="7" class="n">Interruptor general ${T.power.brMain} A${normById(R.norm).elec.diferencial?' · diferencial 30 mA':''}</td></tr></tbody></table></div></div>`}
+$('#bom').addEventListener('click',e=>{const b=e.target.closest('[data-ex]');if(!b)return;exportX(b.dataset.ex)});
+const csvq=v=>`"${String(v).replace(/"/g,'""')}"`;
+function exportX(k){const R=ST.R,P=ST.P,base=(P.nombre||'proyecto').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+ if(k==='bom')download(base+'-metrados.csv','﻿Sistema;Partida;Especificación;Unidad;Cantidad\n'+R.bom.map(b=>[sysName(b.sys),b.item,b.spec,b.unit,(b.unit==='m'?b.qty*1.05:b.qty).toFixed(2).replace('.',',')].map(csvq).join(';')).join('\n'),'text/csv');
+ if(k==='circ')download(base+'-circuitos.csv','﻿Circuito;Nivel;Descripción;Puntos;VA;V;A;mm2;Protección A;Longitud m;Caída %\n'+R.circuits.map(c=>[c.id,c.lv,c.desc,c.pts,c.va,c.V,c.I.toFixed(2),c.s,c.br,c.len.toFixed(1),c.vd.toFixed(2)].map(v=>csvq(String(v).replace('.',','))).join(';')).join('\n'),'text/csv');
+ if(k==='json'){const Pc=clone(P);Pc.levels.forEach(l=>{if(l.bg&&l.bg.src&&l.bg.src.startsWith('data:'))l.bg.src=''});download(base+'.trazo.json',JSON.stringify(Pc,null,1),'application/json')}
+ if(k==='rep')download(base+'-informe.html',reportHtml(),'text/html')}
+function reportHtml(){const R=ST.R,P=ST.P,N=normById(R.norm),d=new Date().toLocaleDateString('es-PE',{year:'numeric',month:'long',day:'numeric'});
+ return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe MEP · ${esc(P.nombre)}</title><style>body{font-family:Arial,Helvetica,sans-serif;color:#1d2731;max-width:960px;margin:32px auto;padding:0 20px;font-size:13px}h1{font-size:22px;margin:0}h2{font-size:16px;border-bottom:2px solid #1d2731;padding-bottom:4px;margin-top:28px}table{border-collapse:collapse;width:100%;margin:8px 0}th,td{border:1px solid #c9d2db;padding:5px 7px;text-align:left;vertical-align:top}th{background:#eef2f5;font-size:11px;text-transform:uppercase}td.n{text-align:right;white-space:nowrap}.ok{color:#17804f}.fail{color:#c22636}.warn{color:#9a6a00}.muted{color:#5d6b78}.box{background:#f4f7f9;border:1px solid #d6dee5;padding:10px 12px;border-radius:6px}</style></head><body>
+ <p class="muted">NexusCode Systems · Trazo MEP</p><h1>Informe de predimensionamiento de instalaciones</h1><p><b>${esc(P.nombre)}</b> · ${esc(P.ubicacion||'')}<br>Normativa: ${esc(N.nombre)} (${esc(N.version||'')})<br>Fecha: ${d}</p>
+ <div class="box">Resultado: <b class="ok">${R.ok} cumplen</b> · <b class="warn">${R.warn} advertencias</b> · <b class="fail">${R.fail} no cumplen</b> · ${R.fixes.length} correcciones automáticas. Presión de red supuesta: ${P.params.presion} m.c.a.</div>
+ <h2>Resumen por sistema</h2><table><tr><th>Sistema</th><th>Resultado</th><th>Detalle</th></tr>${SYS.map(s=>`<tr><td>${s.name}</td><td>${esc(R.stats[s.key][0])}</td><td>${esc(R.stats[s.key][1])}</td></tr>`).join('')}</table>
+ <h2>Verificaciones</h2><table><tr><th>Estado</th><th>Sistema</th><th>Exigencia</th><th>Elemento</th><th>Calculado</th><th>Límite</th><th>Referencia</th></tr>${R.checks.map(c=>`<tr><td class="${c.st==='fail'?'fail':c.st==='warn'?'warn':'ok'}">${STL[c.st]}</td><td>${sysName(c.sys)}</td><td>${esc(c.name)}</td><td>${esc(c.where)}</td><td class="n">${esc(c.val)}</td><td class="n">${esc(c.lim)}</td><td class="muted">${esc(c.ref)}</td></tr>`).join('')}</table>
+ <h2>Correcciones aplicadas</h2><ul>${R.fixes.map(f=>`<li>${esc(f.t)}</li>`).join('')||'<li>Ninguna</li>'}</ul>
+ <h2>Cuadro de cargas</h2><table><tr><th>Circuito</th><th>Nivel</th><th>Descripción</th><th>Puntos</th><th>Carga</th><th>Corriente</th><th>Conductor</th><th>Protección</th><th>ΔV</th></tr>${R.circuits.map(c=>`<tr><td>${c.id}</td><td>${esc(c.lv)}</td><td>${esc(c.desc)}</td><td class="n">${c.pts}</td><td class="n">${fmt(c.va,0)} VA</td><td class="n">${fmt(c.I,1)} A</td><td class="n">${c.s} mm²</td><td class="n">${c.br} A</td><td class="n">${fmt(c.vd,2)} %</td></tr>`).join('')}</table>
+ <p>Demanda máxima ${fmt(R.totals.power.dem/1000,2)} kW · interruptor general ${R.totals.power.brMain} A.</p>
+ <h2>Metrados</h2><table><tr><th>Sistema</th><th>Partida</th><th>Especificación</th><th>Unidad</th><th>Cantidad</th></tr>${R.bom.map(b=>`<tr><td>${sysName(b.sys)}</td><td>${esc(b.item)}</td><td>${esc(b.spec)}</td><td>${b.unit}</td><td class="n">${b.unit==='m'?fmt(b.qty*1.05,1):fmt(b.qty,0)}</td></tr>`).join('')}</table>
+ <p class="muted">${esc(N.nota||'')} Este informe es un predimensionamiento automático y no reemplaza el proyecto de especialidades firmado por profesionales habilitados.</p></body></html>`}
+
+/* ---------- Normativas ---------- */
+const NSCHEMA=[
+ ['General',[['nombre','Nombre','text',null,'wide'],['pais','País','text'],['version','Versión / fecha','text'],['nota','Nota','textarea',null,'wide']]],
+ ['Desagüe y ventilación sanitaria',[['desague.ref','Referencia','text'],['desague.material','Material','text'],['desague.pend_peq','Pendiente mínima (Ø ≤ límite)','num','%'],['desague.pend_gra','Pendiente mínima (Ø > límite)','num','%'],['desague.d_lim','Diámetro límite de pendiente','num','mm'],['desague.prof_ini','Profundidad inicial','num','m'],['desague.prof_max','Profundidad máxima en la salida','num','m'],['desague.entrepiso','Espacio para desagüe en entrepiso','num','m'],['desague.d_min_wc','Diámetro mínimo para inodoro','num','mm'],['desague.ud','Unidades de descarga por aparato','map','UD'],['desague.diam','Diámetro → UD máximas','table','mm:UD'],['desague.vent_dist','Distancia máxima trampa–ventilación','table','mm:m']]],
+ ['Agua fría y caliente',[['agua.ref','Referencia','text'],['agua.material','Material','text'],['agua.p_min','Presión mínima en aparatos','num','m.c.a.'],['agua.p_max','Presión estática máxima','num','m.c.a.'],['agua.v_max','Velocidad máxima','num','m/s'],['agua.c_hw','Coeficiente Hazen-Williams','num','C'],['agua.l_max_caliente','Recorrido máx. agua caliente sin recirculación','num','m'],['agua.ug','Unidades de gasto por aparato','map','UG'],['agua.diams','Diámetros comerciales (nombre:Ø interior)','table','nom:mm']]],
+ ['Electricidad',[['elec.ref','Referencia','text'],['elec.cable','Tipo de conductor','text'],['elec.tension','Tensión de circuitos','num','V'],['elec.tension_ded','Tensión de cargas grandes','num','V'],['elec.caida_max','Caída de tensión máxima','num','%'],['elec.sec_min_luz','Sección mínima alumbrado','num','mm²'],['elec.sec_min_tomas','Sección mínima tomacorrientes','num','mm²'],['elec.max_luz','Máx. puntos por circuito de alumbrado','num',''],['elec.max_tomas','Máx. tomas por circuito','num',''],['elec.va_luz','Carga por punto de luz','num','VA'],['elec.va_toma','Carga por tomacorriente','num','VA'],['elec.m2_luz','Área por punto de luz','num','m²'],['elec.tomas_cada_m','Una toma cada (0 = no aplica)','num','m de muro'],['elec.dist_toma_ducha','Distancia mínima toma–ducha','num','m'],['elec.diferencial','Interruptor diferencial obligatorio','bool'],['elec.va','Cargas de equipos','map','VA'],['elec.tomas_min','Tomacorrientes mínimos por ambiente','map','u'],['elec.ded','Circuitos dedicados','mapbool'],['elec.secciones','Sección → capacidad','table','mm²:A'],['elec.interruptores','Interruptores disponibles','list','A'],['elec.demanda','Factores de demanda (hasta VA : factor)','table','VA:f']]],
+ ['Ventilación mecánica',[['vent.ref','Referencia','text'],['vent.ren_bano','Renovaciones en baño','num','ren/h'],['vent.ren_cocina','Renovaciones en cocina','num','ren/h'],['vent.q_bano_ls','Caudal fijo baño (0 = usar renovaciones)','num','L/s'],['vent.q_cocina_ls','Caudal fijo cocina (0 = usar renovaciones)','num','L/s'],['vent.l_max','Longitud máxima de ducto','num','m'],['vent.v_max','Velocidad máxima en ducto','num','m/s'],['vent.diams','Diámetros de ducto','list','mm']]],
+ ['Protección contra incendio',[['incendio.ref','Referencia','text'],['incendio.rociadores','Rociadores obligatorios en vivienda','bool'],['incendio.area_max','Cobertura máxima por rociador','num','m²'],['incendio.sep_max','Separación máxima','num','m'],['incendio.dist_muro','Distancia máxima a muro','num','m'],['incendio.q_rociador','Caudal por rociador','num','L/min'],['incendio.p_min_rociador','Presión mínima en rociador','num','m.c.a.'],['incendio.n_diseno','Rociadores de diseño','num','u'],['incendio.omitir_bano_m2','Omitir baños menores a','num','m²'],['incendio.detectores','Detectores de humo','sel',['obligatorio','recomendado','no']]]]];
+const getP=(o,p)=>p.split('.').reduce((a,k)=>a==null?a:a[k],o);
+const setP=(o,p,v)=>{const ks=p.split('.');let a=o;for(let i=0;i<ks.length-1;i++){a[ks[i]]=a[ks[i]]||{};a=a[ks[i]]}a[ks[ks.length-1]]=v};
+const NUI={sel:null,draft:null,changed:{},cites:{},doc:null,busy:false,cmp:null};
+function renderNormas(){const box=$('#normas');if(!NUI.sel)NUI.sel=ST.P.normId;
+ const cur=NUI.draft||normById(NUI.sel);const ro=cur.builtin&&!NUI.draft;
+ box.innerHTML=`<div class="nv"><div class="side">
+  <div class="card"><h3>Biblioteca de normativas</h3><div class="nlist">${ST.norms.map(n=>`<button class="nitem" type="button" data-nsel="${esc(n.id)}" aria-current="${!NUI.draft&&n.id===NUI.sel}"><span class="row" style="gap:6px"><b>${esc(n.nombre)}</b>${n.id===ST.P.normId?'<span class="tag on">activa</span>':''}</span><small>${n.builtin?'incluida · referencial':'propia'} · ${esc(n.pais||'')}</small></button>`).join('')}
+   ${NUI.draft?`<div class="nitem" aria-current="true"><b>${esc(NUI.draft.nombre)}</b><small>borrador sin guardar</small></div>`:''}</div></div>
+  <div class="card"><h3>Subir normativa</h3><div class="drop" id="ndrop">Arrastra un PDF, TXT o JSON de la norma aquí<br><button class="btn sm" type="button" data-n="up" style="margin-top:8px">Elegir archivo</button></div>
+   ${NUI.doc?`<div class="hint"><b>${esc(NUI.doc.name)}</b> · ${NUI.doc.pages?NUI.doc.pages+' páginas · ':''}${NUI.doc.text.length.toLocaleString('es-PE')} caracteres</div>
+   <label class="f">Partir de<select id="nbase">${ST.norms.map(n=>`<option value="${esc(n.id)}"${n.id===ST.P.normId?' selected':''}>${esc(n.nombre)}</option>`).join('')}</select></label>
+   ${ST.caps.sample?`<button class="btn primary" type="button" data-n="ai"${NUI.busy?' disabled':''}>${NUI.busy?'Leyendo la norma…':'Extraer parámetros con IA'}</button><p class="hint" id="aiprog">Claude lee el documento y completa solo los valores que encuentra, con su artículo de origen. Tú revisas antes de guardar.</p>`:`<p class="hint">La lectura automática con IA no está disponible en esta vista. Crea un borrador desde la base y completa los valores a mano con el documento al lado.</p>`}
+   <button class="btn" type="button" data-n="manual">Crear borrador manual con este documento</button>`:'<p class="hint">Con un PDF o texto de la norma, la IA propone los parámetros. Con un JSON exportado desde Trazo MEP, se importa directo.</p>'}</div>
+  <div class="card"><h3>Comparar en este proyecto</h3><p class="hint">Calcula el proyecto actual con cada normativa y compara los resultados clave.</p><button class="btn" type="button" data-n="cmp">Comparar normativas</button></div></div>
+  <div class="card"><div class="row"><h3>${esc(cur.nombre)}</h3><div class="row" style="margin-left:auto">
+   ${NUI.draft?`<button class="btn primary" type="button" data-n="save">Guardar normativa</button><button class="btn" type="button" data-n="discard">Descartar</button>`:`${cur.id!==ST.P.normId?`<button class="btn primary" type="button" data-n="use">Usar en el proyecto</button>`:''}<button class="btn" type="button" data-n="dup">${cur.builtin?'Duplicar para editar':'Editar'}</button><button class="btn" type="button" data-n="exp">Exportar JSON</button>${cur.builtin?'':'<button class="btn danger" type="button" data-n="del">Eliminar</button>'}`}</div></div>
+  ${cur.nota?`<p class="hint">${esc(cur.nota)}</p>`:''}${(cur.fuentes||[]).length?`<p class="hint">Fuentes: ${cur.fuentes.map(f=>f.url?`<a href="${esc(f.url)}" target="_blank" rel="noopener" style="color:var(--brand)">${esc(f.nombre)}</a>`:esc(f.nombre)).join(', ')}</p>`:''}
+  ${NUI.cmp?cmpHtml():''}
+  <div class="nform" id="nform">${NSCHEMA.map(([g,fs])=>`<div><h4 style="margin-bottom:8px">${g}</h4><div class="ngrp">${fs.map(f=>fieldHtml(cur,f,ro)).join('')}</div></div>`).join('')}</div></div></div>`;
+ const dz=$('#ndrop');if(dz){dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over')});dz.addEventListener('dragleave',()=>dz.classList.remove('over'));dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');const f=e.dataTransfer.files[0];if(f)readNormFile(f)})}}
+function fieldHtml(N,[path,label,type,unit,cls],ro){const v=getP(N,path),ch=NUI.changed[path]?' changed':'',cite=NUI.cites[path]?`<span class="cite">${esc(NUI.cites[path])}</span>`:'',dis=ro?' disabled':'';const u=unit&&typeof unit==='string'?` <span class="hint">(${unit})</span>`:'';
+ if(type==='map'||type==='mapbool'){return `<div class="f wide${ch}"><span class="hint">${label}${u}</span><div class="mapg">${Object.keys(v||{}).map(k=>type==='mapbool'?`<label class="chk"><input type="checkbox" data-np="${path}.${k}" data-nt="bool"${v[k]?' checked':''}${dis}> ${esc(FX[k]?FX[k].n:ROOM_TYPES[k]||k.replace('tomas_','tomas de '))}</label>`:`<label class="f">${esc(FX[k]?FX[k].n:ROOM_TYPES[k]||k)}<input type="number" step="any" data-np="${path}.${k}" data-nt="num" value="${v[k]}"${dis}></label>`).join('')}</div>${cite}</div>`}
+ if(type==='table')return `<label class="f wide${ch}">${label}${u}<input type="text" data-np="${path}" data-nt="table" value="${esc((v||[]).map(x=>x.join(':')).join(', '))}"${dis}>${cite}</label>`;
+ if(type==='list')return `<label class="f${ch}">${label}${u}<input type="text" data-np="${path}" data-nt="list" value="${esc((v||[]).join(', '))}"${dis}>${cite}</label>`;
+ if(type==='bool')return `<label class="f${ch}"><span class="chk"><input type="checkbox" data-np="${path}" data-nt="bool"${v?' checked':''}${dis}> ${label}</span>${cite}</label>`;
+ if(type==='sel')return `<label class="f${ch}">${label}<select data-np="${path}" data-nt="text"${dis}>${unit.map(o=>`<option${o===v?' selected':''}>${o}</option>`).join('')}</select>${cite}</label>`;
+ if(type==='textarea')return `<label class="f ${cls||''}${ch}">${label}<textarea rows="2" data-np="${path}" data-nt="text"${dis}>${esc(v)}</textarea></label>`;
+ return `<label class="f ${cls||''}${ch}">${label}${u}<input type="${type==='num'?'number':'text'}" step="any" data-np="${path}" data-nt="${type}" value="${esc(v)}"${dis}>${cite}</label>`}
+$('#normas').addEventListener('input',e=>{const t=e.target;if(!t.dataset.np||!NUI.draft)return;const ty=t.dataset.nt;let v;
+ if(ty==='num')v=+t.value;else if(ty==='bool')v=t.checked;else if(ty==='list')v=t.value.split(/[,;\s]+/).filter(Boolean).map(Number).filter(x=>!isNaN(x));
+ else if(ty==='table')v=t.value.split(',').map(s=>s.trim()).filter(Boolean).map(s=>{const [a,b]=s.split(':').map(x=>x.trim());return [isNaN(+a)?a:+a,+b]}).filter(x=>!isNaN(x[1]));else v=t.value;
+ setP(NUI.draft,t.dataset.np,v)});
+$('#normas').addEventListener('click',async e=>{const b=e.target.closest('[data-nsel],[data-n]');if(!b)return;
+ if(b.dataset.nsel){if(NUI.draft&&!confirmDiscard(b))return;NUI.draft=null;NUI.changed={};NUI.cites={};NUI.sel=b.dataset.nsel;renderNormas();return}
+ const a=b.dataset.n,cur=normById(NUI.sel);
+ if(a==='use'){setNorm(cur.id);renderNormas()}
+ if(a==='dup'){NUI.draft=clone(cur);if(cur.builtin){NUI.draft.id=uid('n');NUI.draft.builtin=false;NUI.draft.nombre=cur.nombre+' (copia)'}NUI.changed={};NUI.cites={};renderNormas()}
+ if(a==='discard'){NUI.draft=null;NUI.changed={};NUI.cites={};renderNormas()}
+ if(a==='save'){const N=NUI.draft;N.builtin=false;const where=await store.saveNorm(N);const i=ST.norms.findIndex(x=>x.id===N.id);if(i>=0)ST.norms[i]=N;else ST.norms.push(N);NUI.sel=N.id;NUI.draft=null;NUI.changed={};NUI.cites={};renderNormSel();
+  if(ST.P.normId===N.id&&ST.R)setNorm(N.id);toast('Normativa guardada en '+where);renderNormas()}
+ if(a==='exp')download(cur.id+'.normativa.json',JSON.stringify(cur,null,1),'application/json');
+ if(a==='del'){if(b.dataset.confirm!=='1'){b.dataset.confirm='1';b.textContent='Confirmar eliminación';return}await store.deleteNorm(cur.id);ST.norms=ST.norms.filter(x=>x.id!==cur.id);if(ST.P.normId===cur.id)setNorm(ST.norms[0].id);NUI.sel=ST.P.normId;renderNormSel();renderNormas();toast('Normativa eliminada')}
+ if(a==='up')$('#fileNorm').click();
+ if(a==='manual'){const base=normById($('#nbase').value);NUI.draft=clone(base);NUI.draft.id=uid('n');NUI.draft.builtin=false;NUI.draft.nombre=NUI.doc.name.replace(/\.[^.]+$/,'');NUI.draft.fuentes=[{nombre:NUI.doc.name,url:NUI.doc.url||''}];NUI.draft.nota='Normativa cargada desde documento. Revisa cada valor.';NUI.changed={};NUI.cites={};renderNormas()}
+ if(a==='ai')extractWithAI();
+ if(a==='cmp'){b.disabled=true;b.textContent='Calculando…';setTimeout(()=>{NUI.cmp=ST.norms.map(n=>({n,R:computeFull(ST.P,n)}));renderNormas()},30)}});
+function confirmDiscard(b){if(b.dataset.confirm==='1')return true;b.dataset.confirm='1';toast('Tienes un borrador sin guardar. Haz clic otra vez para descartarlo.');return false}
+function cmpHtml(){const rows=[['Verificaciones que cumplen',R=>`${R.ok} / ${R.checks.length}`],['No cumplen',R=>R.fail],['Colector de desagüe',R=>`Ø${R.totals.drain.dMain}`],['Profundidad en la salida',R=>`${fmt(R.totals.drain.depth)} m`],['Ventilaciones individuales',R=>R.totals.drain.vents],['Presión mínima',R=>`${fmt(R.totals.water.pmin,1)} m.c.a.`],['Circuitos',R=>R.totals.power.circ],['Tomacorrientes',R=>R.totals.power.tomas],['Conductor',R=>`${fmt(R.totals.power.cable,0)} m`],['Interruptor general',R=>`${R.totals.power.brMain} A`],['Rociadores',R=>R.totals.fire.heads],['Detectores',R=>R.totals.fire.det]];
+ return `<div><h4 style="margin-bottom:6px">Comparación en ${esc(ST.P.nombre)}</h4><div class="tbl-wrap"><table><thead><tr><th>Resultado</th>${NUI.cmp.map(c=>`<th>${esc(c.n.nombre)}</th>`).join('')}</tr></thead><tbody>${rows.map(([l,f])=>`<tr><td>${l}</td>${NUI.cmp.map(c=>`<td class="n">${c.R.error?'—':esc(f(c.R))}</td>`).join('')}</tr>`).join('')}
+ <tr><td></td>${NUI.cmp.map(c=>`<td>${c.n.id===ST.P.normId?'<span class="tag on">activa</span>':`<button class="btn sm" type="button" data-nuse="${esc(c.n.id)}">Usar</button>`}</td>`).join('')}</tr></tbody></table></div></div>`}
+$('#normas').addEventListener('click',e=>{const b=e.target.closest('[data-nuse]');if(b){setNorm(b.dataset.nuse);NUI.cmp=null;renderNormas()}});
+$('#fileNorm').addEventListener('change',e=>{const f=e.target.files[0];e.target.value='';if(f)readNormFile(f)});
+async function readNormFile(f){try{
+ if(/\.json$/i.test(f.name)){const N=JSON.parse(await f.text());if(!N.desague||!N.agua||!N.elec)throw new Error('el JSON no tiene la estructura de una normativa de Trazo MEP');N.id=N.builtin?uid('n'):(N.id||uid('n'));N.builtin=false;
+  NUI.draft=N;NUI.changed={};NUI.cites={};renderNormas();toast('Normativa importada. Revísala y guárdala.');return}
+ let text='',pages=0;if(/\.pdf$/i.test(f.name)||f.type==='application/pdf'){toast('Extrayendo texto del PDF…');await ensurePdf();const doc=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;pages=doc.numPages;
+  for(let i=1;i<=Math.min(pages,120);i++){const p=await doc.getPage(i);const tc=await p.getTextContent();text+=`\n[p. ${i}] `+tc.items.map(it=>it.str).join(' ')}}
+ else text=await f.text();
+ if(text.replace(/\s|\[p\. \d+\]/g,'').length<200)toast('El documento casi no tiene texto seleccionable (¿es un escaneo?). La IA podría no encontrar valores.',6000);
+ let url='';if(ST.caps.assets){try{const up=await ST.caps.assets.upload(f);url=up.url}catch(e){}}
+ NUI.doc={name:f.name,text,pages,url};renderNormas()}catch(err){toast('No se pudo leer el archivo: '+err.message,6000)}}
+const AI_FIELDS=NSCHEMA.slice(1).flatMap(([g,fs])=>fs.filter(f=>!/\.ref$/.test(f[0])).map(f=>({k:f[0],l:f[1],t:f[2],u:Array.isArray(f[3])?f[3].join('|'):f[3]})));
+async function extractWithAI(){const sample=ST.caps.sample;if(!sample||!NUI.doc)return;const base=normById($('#nbase').value);NUI.busy=true;renderNormas();
+ try{let lim=150000;try{const L=await sample.limits();if(L&&L.maxPromptBytes)lim=Math.max(20000,L.maxPromptBytes-12000)}catch(e){}
+  const fields=AI_FIELDS.map(f=>{const v=getP(base,f.k);return `- ${f.k} · ${f.l}${f.u?` [${f.u}]`:''} · tipo ${f.t} · valor base: ${JSON.stringify(v)}`}).join('\n');
+  let doc=NUI.doc.text;const enc=new TextEncoder();while(enc.encode(doc).length>lim-enc.encode(fields).length-4000)doc=doc.slice(0,Math.floor(doc.length*0.85));
+  const prompt=`Eres un ingeniero de instalaciones. Lee el texto de una normativa de construcción y extrae SOLO los parámetros que aparecen explícitamente en el texto para estos campos:\n${fields}\n\nReglas:\n- No inventes valores. Si el texto no define un campo, no lo incluyas.\n- Convierte a las unidades indicadas entre corchetes (m, mm, %, m.c.a., V, VA, L/s, etc.).\n- Para tipo "table" devuelve una lista de pares [a, b]; para "map" un objeto con las mismas claves del valor base; para "list" una lista de números; para "bool" true/false.\n- En "citas" indica por campo el artículo, tabla o página de donde sale el valor (máximo 80 caracteres).\n- Devuelve SOLO JSON con esta forma: {"nombre": "nombre corto de la norma", "pais": "...", "version": "año o fecha si aparece", "valores": {"campo": valor}, "citas": {"campo": "Art. ..."}, "advertencias": ["..."]}\n\nTEXTO DE LA NORMA (${NUI.doc.name}):\n${doc}`;
+  const out=await sample.json(prompt,{modelTier:'complex',onText:({text})=>{const el=$('#aiprog');if(el)el.textContent=`Leyendo la norma… ${text.length.toLocaleString('es-PE')} caracteres de respuesta`}});
+  const D=clone(base);D.id=uid('n');D.builtin=false;D.nombre=(out&&out.nombre)||NUI.doc.name.replace(/\.[^.]+$/,'');D.pais=(out&&out.pais)||base.pais;D.version=(out&&out.version)||'';D.fuentes=[{nombre:NUI.doc.name,url:NUI.doc.url||''}];
+  D.nota=`Parámetros extraídos con IA de «${NUI.doc.name}» sobre la base «${base.nombre}». Revisa cada valor resaltado antes de usarla.${out&&out.advertencias&&out.advertencias.length?' Advertencias: '+out.advertencias.join(' · '):''}`;
+  NUI.changed={};NUI.cites={};let n=0;const vals=(out&&out.valores)||{};
+  for(const f of AI_FIELDS){if(!(f.k in vals))continue;let v=vals[f.k];const old=getP(base,f.k);
+   if(f.t==='num'){v=+v;if(isNaN(v))continue}if(f.t==='map'||f.t==='mapbool'){if(typeof v!=='object'||Array.isArray(v))continue;v=Object.assign({},old,v)}if((f.t==='table'||f.t==='list')&&!Array.isArray(v))continue;
+   setP(D,f.k,v);if(JSON.stringify(v)!==JSON.stringify(old)){NUI.changed[f.k]=1;n++}if(out.citas&&out.citas[f.k])NUI.cites[f.k]=String(out.citas[f.k]).slice(0,90)}
+  NUI.draft=D;NUI.busy=false;renderNormas();toast(n?`La IA encontró ${n} parámetros distintos a la base. Están resaltados con su artículo.`:'La IA no encontró parámetros nuevos en el documento. Revisa el texto o complétalos a mano.',6000)}
+ catch(err){NUI.busy=false;renderNormas();toast(err&&err.code==='not_granted'?'Permiso para usar la IA no concedido.':err&&err.code==='rate_limited'?'Demasiadas solicitudes. Intenta en un momento.':'No se pudo extraer: '+(err&&err.message||err),6000)}}
+
+/* ---------- Proyectos ---------- */
+async function renderProjects(){const box=$('#proyectos');box.innerHTML='<div class="card"><p class="hint">Cargando proyectos…</p></div>';const list=await store.listProjects();
+ box.innerHTML=`<div class="card"><div class="row"><h3>Proyectos</h3><div class="row" style="margin-left:auto"><button class="btn primary" type="button" data-pj="new">Nuevo proyecto</button><button class="btn" type="button" data-pj="imp">Importar JSON</button><button class="btn" type="button" data-pj="ex">Abrir ejemplo</button></div></div>
+  <p class="hint">${ST.caps.db?'Los proyectos guardados quedan en la nube de este artifact y los ven quienes tengan acceso.':'Los proyectos se guardan en este navegador.'}</p>
+  <div class="plist">${list.map(p=>`<div class="card pc"><b>${esc(p.nombre)}</b><span class="hint">${p.actualizado?new Date(p.actualizado).toLocaleString('es-PE'):''} · ${p.src}</span><div class="row"><button class="btn sm" type="button" data-pj="open" data-id="${esc(p.id)}">Abrir</button><button class="btn sm danger" type="button" data-pj="del" data-id="${esc(p.id)}">Eliminar</button></div></div>`).join('')||'<p class="hint">Aún no hay proyectos guardados. El ejemplo de la vivienda Mutilla está siempre disponible.</p>'}</div></div>`;
+ box._list=list}
+$('#proyectos').addEventListener('click',async e=>{const b=e.target.closest('[data-pj]');if(!b)return;const a=b.dataset.pj,list=$('#proyectos')._list||[];
+ if(a==='new'){setProject(newProject());showView('plano');setTool('room');toast('Proyecto nuevo: sube el plano del primer nivel o dibuja los ambientes.',5000)}
+ if(a==='ex'){setProject(clone(EXAMPLE_PROJECT));showView('plano')}
+ if(a==='imp')$('#fileProj').click();
+ if(a==='open'){const p=list.find(x=>x.id===b.dataset.id);try{setProject(JSON.parse(p.json));showView('plano')}catch(err){toast('No se pudo abrir el proyecto')}}
+ if(a==='del'){if(b.dataset.confirm!=='1'){b.dataset.confirm='1';b.textContent='Confirmar';return}await store.deleteProject(b.dataset.id);renderProjects()}});
+$('#fileProj').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{const P=JSON.parse(await f.text());if(!P.levels)throw new Error('formato no reconocido');P.id=P.id||uid('p');setProject(P);showView('plano');toast('Proyecto importado')}catch(err){toast('No se pudo importar: '+err.message)}});
+
+/* ---------- inicio ---------- */
+(async function boot(){await loadNorms();let P=null;const last=LS.get('trazo.last',null);
+ if(last){const loc=LS.get('trazo.proyectos',{});if(loc[last])try{P=JSON.parse(loc[last].json)}catch(e){}}
+ if(P&&P.id==='ejemplo-mutilla'&&!P.lot)P=null;setProject(P||clone(EXAMPLE_PROJECT));setTool('sel');showView(location.hash.slice(1)||'plano',true);
+ initCaps().then(async()=>{if(ST.caps.db){await loadNorms();if(last&&!P){const list=await store.listProjects();const p=list.find(x=>x.id===last);if(p)try{setProject(JSON.parse(p.json))}catch(e){}}}})})();

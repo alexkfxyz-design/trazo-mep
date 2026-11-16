@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Trazo MEP de NexusCode Systems: diseño y verificación automática de instalaciones sanitarias, eléctricas, de ventilación e incendio sobre planos reales.">
+<meta name="theme-color" content="#0b1016">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<title>Trazo MEP · NexusCode Systems</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M2 13V3l12 10V3" fill="none" stroke="#69b3ff" stroke-width="2" stroke-linejoin="round"/></svg></div>
+      <div><b>Trazo MEP</b><small>NexusCode Systems</small></div>
+    </div>
+    <div class="pinfo"><input id="pname" type="text" aria-label="Nombre del proyecto"><input id="ploc" type="text" aria-label="Ubicación" style="background:transparent;border:0"></div>
+    <label class="normpick">Normativa activa<select id="normSel"></select></label>
+    <div class="acts"><span id="saveSt"></span><button class="btn" id="btnSave" type="button">Guardar</button><button class="btn primary" id="btnCalc" type="button">▶ Calcular instalaciones</button></div>
+  </header>
+  <nav class="tabs" role="tablist" id="tabs">
+    <button class="tab" role="tab" data-v="plano">Plano y ambientes</button>
+    <button class="tab" role="tab" data-v="calculo">Agentes</button>
+    <button class="tab" role="tab" data-v="modelo">Modelo 3D</button>
+    <button class="tab" role="tab" data-v="verif">Verificaciones <span class="badge" id="bVerif" hidden></span></button>
+    <button class="tab" role="tab" data-v="metrados">Metrados y circuitos</button>
+    <button class="tab" role="tab" data-v="normas">Normativas</button>
+    <button class="tab" role="tab" data-v="proyectos">Proyectos</button>
+  </nav>
+  <div id="stale" class="banner" hidden><span>El plano o la normativa cambiaron desde el último cálculo.</span><button class="btn sm primary" data-act="calc" type="button">Recalcular</button></div>
+
+  <section id="v-plano" class="view">
+    <div class="ed">
+      <div class="edmain">
+        <div class="toolbar" id="toolbar">
+          <button class="tool" data-tool="sel" type="button">↖ Seleccionar</button>
+          <button class="tool" data-tool="room" type="button">▭ Ambiente</button>
+          <span class="tool" data-tool="fx"><button type="button" data-tool="fx" style="background:none;border:0;padding:0">◉ Aparato</button><select id="fxType" aria-label="Tipo de aparato"></select></span>
+          <span class="tool" data-tool="pt"><button type="button" data-tool="pt" style="background:none;border:0;padding:0">◆ Punto</button><select id="ptType" aria-label="Tipo de punto"></select></span>
+          <span class="tool" data-tool="op"><button type="button" data-tool="op" style="background:none;border:0;padding:0">▯ Vano</button><select id="opType" aria-label="Tipo de vano"><option value="puerta">Puerta</option><option value="ventana">Ventana</option><option value="vano">Vano libre</option></select></span>
+          <button class="tool" data-tool="stair" type="button">▤ Escalera</button>
+          <button class="tool" data-tool="del" type="button">✕ Borrar</button>
+          <span class="sep"></span>
+          <button class="tool" data-tool="cal" type="button">📏 Calibrar escala</button>
+          <button class="tool" data-tool="bg" type="button">✥ Mover fondo</button>
+          <span class="sep"></span>
+          <label class="chk"><input type="checkbox" id="showBg" checked> Fondo</label>
+          <label class="chk"><input type="checkbox" id="showNets" checked> Instalaciones</label>
+        </div>
+        <div class="levels" id="levels"></div>
+        <div class="canvaswrap">
+          <canvas id="ed" aria-label="Editor del plano"></canvas>
+          <div class="edhelp" id="edhelp"></div>
+          <div class="zoombox"><button type="button" data-act="zin" aria-label="Acercar">+</button><button type="button" data-act="zout" aria-label="Alejar">−</button><button type="button" data-act="fit" aria-label="Ajustar a la vista">⤢</button></div>
+          <div class="coords" id="coords">x — · y —</div>
+        </div>
+      </div>
+      <aside class="side" id="side"></aside>
+    </div>
+  </section>
+
+  <section id="v-calculo" class="view" hidden><div class="calc" id="calc"></div></section>
+
+  <section id="v-modelo" class="view" hidden>
+    <div class="v3">
+      <div class="stage">
+        <canvas id="c3d" aria-label="Modelo 3D integrado"></canvas>
+        <div class="legend" id="legend3"></div>
+        <div class="hint3">Arrastra para girar · rueda para acercar</div>
+        <div class="msg3" id="msg3">Calcula las instalaciones para ver el modelo integrado.</div>
+      </div>
+      <aside class="side" id="side3"></aside>
+    </div>
+  </section>
+
+  <section id="v-verif" class="view" hidden><div id="verif" class="calc"></div></section>
+  <section id="v-metrados" class="view" hidden><div id="bom" class="calc"></div></section>
+  <section id="v-normas" class="view" hidden><div id="normas"></div></section>
+  <section id="v-proyectos" class="view" hidden><div id="proyectos" class="calc"></div></section>
+
+  <footer class="foot">
+    <span>Trazo MEP · prototipo de NexusCode Systems. Los cálculos son predimensionamientos automáticos con los parámetros de la normativa activa.</span>
+    <span>Los valores de las normativas incluidas son referenciales: revisa la versión vigente. No reemplaza el proyecto firmado por profesionales habilitados.</span>
+  </footer>
+</div>
+<div id="toast" hidden></div>
+<div id="modal" class="modal" hidden></div>
+<input type="file" id="fileBg" accept=".pdf,image/*" hidden>
+<input type="file" id="fileNorm" accept=".pdf,.txt,.md,.json" hidden>
+<input type="file" id="fileProj" accept=".json" hidden>
+<script src="js/engine.js"></script>
+<script src="js/example.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/visor3d.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

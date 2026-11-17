@@ -264,6 +264,7 @@ function renderSide(){if(!ST.P)return;const l=curLv(),P=ST.P,s=ST.sel;let h='';
   <h4>Plano de fondo</h4><div class="row"><button class="btn sm" data-side="upbg" type="button">Subir PDF o imagen</button>${l.bg&&l.bg.src?`<button class="btn sm" data-side="cal" type="button">Calibrar</button><button class="btn sm danger" data-side="rmbg" type="button">Quitar</button>`:''}</div>
   ${ST.pdf&&ST.pdf.lv===l.id&&ST.pdf.n>1?`<label class="f">Página del PDF<select data-side-sel="pdfpage">${Array.from({length:ST.pdf.n},(_,i)=>`<option value="${i+1}"${i+1===ST.pdf.page?' selected':''}>Página ${i+1}</option>`).join('')}</select></label>`:''}
   ${l.bg&&l.bg.src?`<label class="f">Opacidad<input type="range" min="0.1" max="1" step="0.05" data-bgop value="${l.bg.op??0.55}"></label>`:'<p class="hint">Sube la planta de este nivel, calíbrala con una cota y dibuja los ambientes encima.</p>'}
+  ${l.bg&&l.bg.src?`<button class="btn sm" data-side="detect" type="button">✨ Detectar ambientes en este plano</button><p class="hint">Para imágenes o PDF escaneados: calibra la escala primero. La IA lee los nombres y la app mide los recintos hasta los muros.</p>`:''}
   ${P.levels.length>1?`<button class="btn sm danger" data-side="dellv" type="button">Eliminar este nivel</button>`:''}</div>`;
  // parámetros
  h+=`<div class="card"><h3>Datos del proyecto</h3><div class="g2"><label class="f">Presión de red (m.c.a.)<input type="number" step="0.5" min="1" data-pf="presion" value="${P.params.presion}"></label><label class="f">Factor de accesorios<input type="number" step="0.05" min="1" data-pf="f_acc" value="${P.params.f_acc}"></label></div></div>`;
@@ -292,6 +293,7 @@ $('#side').addEventListener('click',e=>{const b=e.target.closest('[data-side],[d
  const a=b.dataset.side;
  if(a==='del'&&ST.sel)delItem(ST.sel);
  if(a==='upbg')$('#fileBg').click();
+ if(a==='detect')runDetect();
  if(a==='rmbg'){l.bg=null;markDirty();renderSide();drawEd()}
  if(a==='cal')setTool('cal');
  if(a==='calreset'){ST.cal.pts=[];renderSide();drawEd()}
@@ -302,6 +304,7 @@ $('#side').addEventListener('click',e=>{const b=e.target.closest('[data-side],[d
 
 /* subir fondo (PDF o imagen) */
 $('#fileBg').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const l=curLv();
+ if((f.type==='application/pdf'||/\.pdf$/i.test(f.name))&&!ST.P.levels.some(x=>x.rooms.length)){if(await runImport(f))return}
  try{if(f.type==='application/pdf'||/\.pdf$/i.test(f.name)){toast('Leyendo PDF…');await ensurePdf();const buf=await f.arrayBuffer();const doc=await pdfjsLib.getDocument({data:buf}).promise;ST.pdf={doc,n:doc.numPages,page:1,lv:l.id,name:f.name};await renderPdfPage()}
   else{const url=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});const im=new Image();await new Promise(r=>{im.onload=r;im.src=url});
    l.bg={src:url,pxPerM:im.naturalWidth/20,ox:0,oy:0,op:0.6,show:true};afterBg()}}

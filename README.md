@@ -8,6 +8,7 @@ Trazo MEP toma la planta de una vivienda (PDF o imagen), y cinco agentes trazan 
 
 ## Funciones
 
+- **Importación automática**: al subir el PDF de arquitectura (vectorial, exportado desde CAD) la app lee los nombres de los recintos y los títulos de planta, detecta los muros, deduce la escala comparando con las cotas y arma un proyecto editable con un nivel por planta, aparatos sanitarios propuestos por tipo de recinto, medidor, salida, tablero y ducto. Para imágenes o PDF escaneados: subir como fondo, calibrar y usar **Detectar ambientes** (usa IA para leer los nombres).
 - **Plano**: sube un PDF o imagen, calibra la escala con una cota conocida y dibuja ambientes, aparatos, puertas, ventanas y escaleras. Los muros se generan solos con su espesor.
 - **Agentes**: ruteo real sobre grilla de 10 cm (Dijkstra con penalización de giros y muros), árboles de distribución por sistema y dimensionamiento por unidades de descarga, unidades de gasto (Hunter), Hazen-Williams, caída de tensión y capacidad de conductores.
 - **Coordinación 3D**: detección de interferencias entre sistemas y re-ruteo automático.

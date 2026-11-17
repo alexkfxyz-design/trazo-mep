@@ -186,7 +186,7 @@ async function extractWithAI(){const sample=ST.caps.sample,cl=CLD();if((!sample&
 
 /* ---------- Proyectos ---------- */
 async function renderProjects(){const box=$('#proyectos');box.innerHTML='<div class="card"><p class="hint">Cargando proyectos…</p></div>';const list=await store.listProjects();
- box.innerHTML=`<div class="card"><div class="row"><h3>Proyectos</h3><div class="row" style="margin-left:auto"><button class="btn primary" type="button" data-pj="new">Nuevo proyecto</button><button class="btn" type="button" data-pj="imp">Importar JSON</button><button class="btn" type="button" data-pj="ex">Abrir ejemplo</button></div></div>
+ box.innerHTML=`<div class="card"><div class="row"><h3>Proyectos</h3><div class="row" style="margin-left:auto"><button class="btn primary" type="button" data-pj="pdf">Nuevo desde PDF</button><button class="btn" type="button" data-pj="new">Proyecto en blanco</button><button class="btn" type="button" data-pj="imp">Importar JSON</button><button class="btn" type="button" data-pj="ex">Abrir ejemplo</button></div></div>
   <p class="hint">${CLD()?`Sesión iniciada: tus proyectos se guardan en tu cuenta y puedes abrirlos desde cualquier equipo.`:window.TrazoCloud&&window.TrazoCloud.available?`Los proyectos se guardan en este navegador. <button class="btn sm" type="button" onclick="authModal()">Inicia sesión</button> para guardarlos en la nube.`:ST.caps.db?'Los proyectos guardados quedan en la nube de este artifact y los ven quienes tengan acceso.':'Los proyectos se guardan en este navegador.'}</p>
   <div class="plist">${list.map(p=>`<div class="card pc"><b>${esc(p.nombre)}</b><span class="hint">${p.actualizado?new Date(p.actualizado).toLocaleString('es-PE'):''} · ${p.src}</span><div class="row"><button class="btn sm" type="button" data-pj="open" data-id="${esc(p.id)}">Abrir</button>${p.src==='local'&&CLD()?`<button class="btn sm" type="button" data-pj="up" data-id="${esc(p.id)}">Subir a la nube</button>`:''}<button class="btn sm danger" type="button" data-pj="del" data-id="${esc(p.id)}">Eliminar</button></div></div>`).join('')||'<p class="hint">Aún no hay proyectos guardados. El ejemplo de la vivienda Mutilla está siempre disponible.</p>'}</div></div>`;
  box._list=list}
@@ -194,9 +194,11 @@ $('#proyectos').addEventListener('click',async e=>{const b=e.target.closest('[da
  if(a==='new'){setProject(newProject());showView('plano');setTool('room');toast('Proyecto nuevo: sube el plano del primer nivel o dibuja los ambientes.',5000)}
  if(a==='ex'){setProject(clone(EXAMPLE_PROJECT));showView('plano')}
  if(a==='imp')$('#fileProj').click();
+ if(a==='pdf')$('#fileImport').click();
  if(a==='open'){const p=list.find(x=>x.id===b.dataset.id);try{setProject(JSON.parse(p.json));showView('plano')}catch(err){toast('No se pudo abrir el proyecto')}}
  if(a==='del'){if(b.dataset.confirm!=='1'){b.dataset.confirm='1';b.textContent='Confirmar';return}await store.deleteProject(b.dataset.id);renderProjects()}
  if(a==='up'){const p=list.find(x=>x.id===b.dataset.id);b.disabled=true;b.textContent='Subiendo…';try{const P=JSON.parse(p.json);const prev=ST.P;setProject(P);await saveProject();const loc=LS.get('trazo.proyectos',{});delete loc[P.id];LS.set('trazo.proyectos',loc);if(prev&&prev.id!==P.id)setProject(prev);renderProjects()}catch(err){toast('No se pudo subir: '+err.message,5000);renderProjects()}}});
+$('#fileImport').addEventListener('change',e=>{const f=e.target.files[0];e.target.value='';if(f)runImport(f)});
 $('#fileProj').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{const P=JSON.parse(await f.text());if(!P.levels)throw new Error('formato no reconocido');P.id=P.id||uid('p');setProject(P);showView('plano');toast('Proyecto importado')}catch(err){toast('No se pudo importar: '+err.message)}});
 
 /* ---------- inicio ---------- */

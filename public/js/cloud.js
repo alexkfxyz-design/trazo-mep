@@ -92,6 +92,13 @@ async function loadConfig() {
         return s.docs.map(d => d.data()).sort((a, b) => a.i - b.i).map(d => d.data).join('');
       }),
       aiModel: AI_MODEL,
+      aiImageJSON: wrap(async (prompt, blob) => {
+        const m = await getModel();
+        const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); });
+        const r = await m.generateContent([prompt, { inlineData: { data: b64, mimeType: blob.type || 'image/jpeg' } }]);
+        const clean = r.response.text().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+        return JSON.parse(clean);
+      }),
       aiJSON: wrap(async (prompt, onText) => {
         const m = await getModel();
         const r = await m.generateContentStream(prompt);

@@ -10,15 +10,28 @@ function init3D(){if(V3.R)return;const cv=$('#c3d');const R3=new THREE.WebGLRend
  scene.add(new THREE.HemisphereLight(0xe6eef6,0x18212b,0.75));scene.add(new THREE.AmbientLight(0xffffff,0.18));const dl=new THREE.DirectionalLight(0xffffff,0.75);dl.position.set(10,24,8);scene.add(dl);const dl2=new THREE.DirectionalLight(0x9fc7ff,0.25);dl2.position.set(-12,10,-6);scene.add(dl2);
  Object.assign(V3,{R:R3,scene,cam,root:new THREE.Group(),mk:new THREE.Group(),st:{theta:-0.75,phi:0.95,r:30,auto:true,drag:null,tg:new THREE.Vector3(),moved:0}});scene.add(V3.root);scene.add(V3.mk);
  const tip=document.createElement('div');tip.className='tip3';tip.hidden=true;cv.parentElement.appendChild(tip);V3.tip=tip;
- const st=V3.st;cv.addEventListener('pointerdown',e=>{st.drag=[e.clientX,e.clientY];st.moved=0;st.auto=false;cv.setPointerCapture(e.pointerId)});
- cv.addEventListener('pointermove',e=>{if(!st.drag)return;const dx=e.clientX-st.drag[0],dy=e.clientY-st.drag[1];st.moved+=Math.abs(dx)+Math.abs(dy);st.drag=[e.clientX,e.clientY];
-  if(e.shiftKey||e.buttons===2){const right=new THREE.Vector3().setFromMatrixColumn(cam.matrix,0),up=new THREE.Vector3(0,1,0);st.tg.addScaledVector(right,-dx*st.r*0.0015).addScaledVector(up,dy*st.r*0.0015)}
-  else{st.theta-=dx*.006;st.phi=Math.max(.02,Math.min(1.52,st.phi-dy*.005))}});
- cv.addEventListener('pointerup',e=>{const was=st.drag;st.drag=null;if(was&&st.moved<4)pick3(e)});cv.addEventListener('pointercancel',()=>st.drag=null);
+ // órbita libre de 360° (también por debajo del piso), desplazamiento, zoom con rueda o pellizco y doble clic para centrar
+ const st=V3.st,PTR=new Map();cv.tabIndex=0;
+ const pan=(dx,dy)=>{const right=new THREE.Vector3().setFromMatrixColumn(cam.matrix,0),up=new THREE.Vector3().setFromMatrixColumn(cam.matrix,1);st.tg.addScaledVector(right,-dx*st.r*0.0016).addScaledVector(up,dy*st.r*0.0016)};
+ const orbit=(dx,dy)=>{st.theta-=dx*.006;st.phi=Math.max(.02,Math.min(Math.PI-.02,st.phi-dy*.005))};
+ const zoom=f=>{st.r=Math.max(0.6,Math.min(260,st.r*f))};
+ cv.addEventListener('pointerdown',e=>{PTR.set(e.pointerId,[e.clientX,e.clientY]);st.drag=[e.clientX,e.clientY];st.btn=e.button;st.moved=0;st.auto=false;st.pinch=null;cv.setPointerCapture(e.pointerId)});
+ cv.addEventListener('pointermove',e=>{if(!PTR.has(e.pointerId))return;const prev=PTR.get(e.pointerId);PTR.set(e.pointerId,[e.clientX,e.clientY]);
+  if(PTR.size>=2){const [p1,p2]=[...PTR.values()];const d=Math.hypot(p1[0]-p2[0],p1[1]-p2[1]),m=[(p1[0]+p2[0])/2,(p1[1]+p2[1])/2];
+   if(st.pinch){zoom(st.pinch.d/Math.max(1,d));pan((m[0]-st.pinch.m[0])/2,(m[1]-st.pinch.m[1])/2)}st.pinch={d,m};st.moved+=10;return}
+  const dx=e.clientX-prev[0],dy=e.clientY-prev[1];st.moved+=Math.abs(dx)+Math.abs(dy);
+  if(e.shiftKey||st.btn===2||st.btn===1)pan(dx,dy);else orbit(dx,dy)});
+ const up=e=>{const was=PTR.has(e.pointerId);PTR.delete(e.pointerId);if(PTR.size<2)st.pinch=null;if(!PTR.size){st.drag=null;if(was&&st.moved<4&&e.type==='pointerup')pick3(e)}};
+ cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
  cv.addEventListener('contextmenu',e=>e.preventDefault());
- cv.addEventListener('wheel',e=>{e.preventDefault();st.r=Math.max(3,Math.min(120,st.r*(1+e.deltaY*.001)))},{passive:false});
+ cv.addEventListener('wheel',e=>{e.preventDefault();zoom(1+Math.max(-0.5,Math.min(0.5,e.deltaY*.001)))},{passive:false});
+ cv.addEventListener('dblclick',e=>{const r=cv.getBoundingClientRect();const m=new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);const rc=new THREE.Raycaster();rc.setFromCamera(m,cam);
+  const vis=o=>{for(let x=o;x;x=x.parent)if(x.visible===false)return false;return true};const hits=rc.intersectObjects(V3.root.children,true).filter(h=>vis(h.object)&&!(h.object.material&&h.object.material.transparent&&h.object.material.opacity<0.3));
+  if(hits.length){st.tg.copy(hits[0].point);st.r=Math.min(st.r,7);st.auto=false}});
+ cv.addEventListener('keydown',e=>{const k=e.key;let h=true;if(k==='ArrowLeft')orbit(-25,0);else if(k==='ArrowRight')orbit(25,0);else if(k==='ArrowUp')orbit(0,-25);else if(k==='ArrowDown')orbit(0,25);else if(k==='+'||k==='=')zoom(0.85);else if(k==='-')zoom(1.18);else h=false;if(h){e.preventDefault();st.auto=false}});
  const loop=()=>{requestAnimationFrame(loop);if(ST.view!=='modelo')return;const r=cv.getBoundingClientRect();if(r.width<2)return;R3.setSize(r.width,r.height,false);cam.aspect=r.width/r.height;cam.updateProjectionMatrix();
   if(st.auto&&!RM)st.theta+=0.0012;cam.position.set(st.tg.x+st.r*Math.sin(st.phi)*Math.sin(st.theta),st.tg.y+st.r*Math.cos(st.phi),st.tg.z+st.r*Math.sin(st.phi)*Math.cos(st.theta));cam.lookAt(st.tg);
+  {const under=st.phi>Math.PI/2+0.05;if(under!==V3.under){V3.under=under;applyGhost()}}
   const now=performance.now();V3.mk.children.forEach(m=>{m.quaternion.copy(cam.quaternion);m.scale.setScalar(1+.12*Math.sin(now/160));if(m.userData.fade)m.material.opacity=Math.max(0,1-(now-m.userData.fade)/700)});
   for(let i=V3.mk.children.length-1;i>=0;i--){const m=V3.mk.children[i];if(m.userData.fade&&m.material.opacity<=0){V3.mk.remove(m);m.material.dispose()}}
   R3.render(scene,cam)};loop()}
@@ -114,12 +127,13 @@ function buildNets(P3){Object.values(V3.lv).forEach(L=>disposeGroup(L.nets));dis
  B.forEach(b=>{if(!b.vc)return;const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(b.pos,3));geo.setAttribute('normal',new THREE.Float32BufferAttribute(b.nor,3));
   geo.setIndex(b.vc>65000?new THREE.Uint32BufferAttribute(b.idx,1):new THREE.Uint16BufferAttribute(b.idx,1));geo.computeBoundingSphere();
   const m=new THREE.Mesh(geo,mat(b.k));m.userData={k:b.k,tri:Int32Array.from(b.tri),info:b.info};if(b.k==='power'||b.k==='vent')m.material.side=THREE.FrontSide;else if(big)m.material.side=THREE.DoubleSide;b.g.add(m);V3.netMeshes.push(m)})}
+function applyGhost(){const m=M3();const g=VOPT.ghost||V3.under;m.slab.transparent=g;m.slab.opacity=g?0.18:1;m.slab.depthWrite=!g;m.slab.needsUpdate=true;if(V3.ground)V3.ground.visible=VOPT.ground&&!V3.under}
 function applyView(){const lvs=lvOrder();lvs.forEach(l=>{const L=V3.lv[l.id];if(!L)return;L.g.position.y=lvOff(l);L.g.visible=LEGLV[l.id]!==false;L.nets.children.forEach(m=>m.visible=LEG3[m.userData.k])});
- V3.all.visible=!(VOPT.explode>0)&&!V3.solo;V3.all.children.forEach(m=>m.visible=LEG3[m.userData.k]);V3.ground.visible=VOPT.ground;V3.roof.visible=VOPT.roof&&!V3.solo;if(V3.roof.children.length)V3.roof.position.y=lvOff(lvs[lvs.length-1]);placeMarkers()}
+ V3.all.visible=!(VOPT.explode>0)&&!V3.solo;V3.all.children.forEach(m=>m.visible=LEG3[m.userData.k]);V3.ground.visible=VOPT.ground&&!V3.under;V3.roof.visible=VOPT.roof&&!V3.solo;if(V3.roof.children.length)V3.roof.position.y=lvOff(lvs[lvs.length-1]);placeMarkers()}
 function frame3(p,init){const st=V3.st,[x0,y0,x1,y1]=V3.bb,lvs=lvOrder(),t=lvs[lvs.length-1];const H=t.elev+t.h+lvOff(t);st.tg.set(0,H*0.42,0);const span=Math.max(x1-x0,y1-y0);
  const cr=$('#c3d').getBoundingClientRect();
  const asp=cr.width&&cr.height?cr.width/cr.height:1.6,fit=(sz)=>(sz/2)/Math.tan(34*Math.PI/360)/Math.min(1,asp);
- const P={iso:[-0.75,0.95,fit(span)*0.95],top:[0,0.02,fit(span)*1.12],front:[0,1.35,fit(Math.max(x1-x0,H))*1.6],side:[Math.PI/2,1.32,fit(span)*1.0]}[p]||[-0.75,0.95,fit(span)*0.95];
+ const P={under:[-0.75,2.35,fit(span)*0.85],iso:[-0.75,0.95,fit(span)*0.95],top:[0,0.02,fit(span)*1.12],front:[0,1.35,fit(Math.max(x1-x0,H))*1.6],side:[Math.PI/2,1.32,fit(span)*1.0]}[p]||[-0.75,0.95,fit(span)*0.95];
  st.theta=P[0];st.phi=P[1];st.r=Math.max(8,P[2]);if(!init)st.auto=false;if(p==='top')st.tg.set(0,H*0.5,0)}
 function pick3(e){if(!V3.netMeshes)return;const cv=$('#c3d'),r=cv.getBoundingClientRect();const m=new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
  const rc=new THREE.Raycaster();rc.setFromCamera(m,V3.cam);const hits=rc.intersectObjects(V3.netMeshes.filter(x=>x.visible&&x.parent.visible&&x.parent.parent&&x.parent.parent.visible!==false),false);
@@ -135,20 +149,22 @@ function renderSide3(phase){const R=ST.R,P=ST.P;const leg=$('#legend3');
   <div class="f"><span class="hint">Muros</span><div class="chips">${[['cut','Cortados a 1.15 m'],['full','Completos'],['none','Ocultos']].map(([k,n])=>`<button class="chip" type="button" data-v3w="${k}" aria-pressed="${VOPT.walls===k}">${n}</button>`).join('')}</div></div>
   ${P.levels.length>2?`<label class="f">Niveles visibles<select data-v3lv><option value="">Todos (${P.levels.length})</option>${lvOrder().map(l=>`<option value="${l.id}"${V3.solo===l.id?' selected':''}>Solo ${esc(l.name)}</option>`).join('')}</select></label>`:''}
   ${multi?`<label class="f">Separación entre pisos (vista explotada): <b class="mono">${fmt(VOPT.explode,1)} m</b><input type="range" min="0" max="5" step="0.1" value="${VOPT.explode}" data-v3x></label>`:''}
-  <div class="row"><label class="chk"><input type="checkbox" data-v3o="labels"${VOPT.labels?' checked':''}> Nombres</label><label class="chk"><input type="checkbox" data-v3o="plan"${VOPT.plan?' checked':''}> Plano en el piso</label><label class="chk"><input type="checkbox" data-v3o="roof"${VOPT.roof?' checked':''}> Techo</label><label class="chk"><input type="checkbox" data-v3o="ground"${VOPT.ground?' checked':''}> Terreno</label></div>
-  <div class="row"><span class="hint">Cámara</span>${[['iso','3D'],['top','Planta'],['front','Frente'],['side','Lateral']].map(([k,n])=>`<button class="btn sm" type="button" data-v3c="${k}">${n}</button>`).join('')}<button class="btn sm" type="button" data-v3png style="margin-left:auto">Imagen PNG</button></div>
-  <p class="hint">Haz clic en una tubería para ver su sistema y diámetro. Shift + arrastrar para desplazar.</p></div>
+  <div class="row"><label class="chk"><input type="checkbox" data-v3o="labels"${VOPT.labels?' checked':''}> Nombres</label><label class="chk"><input type="checkbox" data-v3o="plan"${VOPT.plan?' checked':''}> Plano en el piso</label><label class="chk"><input type="checkbox" data-v3o="roof"${VOPT.roof?' checked':''}> Techo</label><label class="chk"><input type="checkbox" data-v3o="ground"${VOPT.ground?' checked':''}> Terreno</label><label class="chk"><input type="checkbox" data-v3o="ghost"${VOPT.ghost?' checked':''}> Losas transparentes</label></div>
+  <div class="row"><span class="hint">Enfocar</span><button class="btn sm" type="button" data-v3only="drain">Solo desagüe</button><button class="btn sm" type="button" data-v3only="water">Solo agua</button><button class="btn sm" type="button" data-v3only="all">Todos los sistemas</button></div>
+  <div class="row"><span class="hint">Cámara</span>${[['iso','3D'],['top','Planta'],['front','Frente'],['side','Lateral'],['under','Desde abajo']].map(([k,n])=>`<button class="btn sm" type="button" data-v3c="${k}">${n}</button>`).join('')}<button class="btn sm" type="button" data-v3png style="margin-left:auto">Imagen PNG</button></div>
+  <p class="hint">Arrastra para girar 360° (también por debajo del piso). Clic derecho, rueda presionada o Shift + arrastrar para desplazar; rueda o pellizco para acercar. Doble clic sobre una tubería para centrar la vista ahí. Clic en una tubería para ver su sistema y diámetro.</p></div>
  <div class="card"><h3>Coordinador · interferencias</h3><div class="cl-h"><b class="${R.big?(R.clash.remaining?'warn':'ok'):phase==='first'&&nf?'bad':'ok'}">${R.big?R.clash.remaining:phase==='first'?nf:R.clash.remaining}</b><span class="hint">${R.big?`pendientes de revisión · ${R.clash.initial} cruces detectados, ${R.clash.steps.length} resueltos con desvíos. En proyectos grandes el coordinador trabaja en una pasada.`:phase==='first'?(nf?'cruces en la primera pasada de los agentes':'cruces: los recorridos no chocan'):`pendientes · ${nf} resueltas por re-ruteo${R.clash.steps.length?` y ${R.clash.steps.length} desvíos`:''}`}</span></div>
   <div class="clist">${(R.first||[]).map(c=>`<div class="ci${phase==='final'?' ok':''}"><span class="ic">${phase==='final'?'✓':'●'}</span><div>${NETS[c.a]} ↔ ${NETS[c.b]}<small>${esc(c.where)}${phase==='final'?' · re-ruteado':''}</small></div></div>`).join('')||(R.big?'':'<p class="hint">Sin cruces entre sistemas.</p>')}</div></div>
   <div class="card"><h3>Resultado · ${esc(normById(R.norm).nombre)}</h3>${SYS.map(s=>{const ck=R.checks.filter(c=>c.sys===s.key),f=ck.filter(c=>c.st==='fail').length,w=ck.filter(c=>c.st==='warn').length;return `<div class="sumr"><span class="sw" style="background:var(${SYS_COL[s.key]})"></span><div><b>${s.short}</b><small>${esc(R.stats[s.key][0])}</small><small>${esc(R.stats[s.key][1])}</small></div><span class="pillst ${f?'bad':w?'warn':'ok'}">${f?f+' ✕':w?w+' !':'✓ '+ck.length}</span></div>`}).join('')}
   <div class="row"><button class="btn sm" type="button" onclick="showView('verif')">Ver verificaciones</button><button class="btn sm" type="button" onclick="showView('metrados')">Ver metrados</button></div></div>`}
 $('#legend3').addEventListener('click',e=>{const b=e.target.closest('[data-l3],[data-lv3]');if(!b)return;if(b.dataset.l3){LEG3[b.dataset.l3]=!LEG3[b.dataset.l3];b.setAttribute('aria-pressed',String(LEG3[b.dataset.l3]))}else{const id=b.dataset.lv3;LEGLV[id]=LEGLV[id]===false;b.setAttribute('aria-pressed',String(LEGLV[id]))}if(V3.lv)applyView()});
-$('#side3').addEventListener('click',e=>{const b=e.target.closest('[data-v3w],[data-v3c],[data-v3png]');if(!b||!V3.lv)return;
+$('#side3').addEventListener('click',e=>{const b=e.target.closest('[data-v3w],[data-v3c],[data-v3png],[data-v3only]');if(!b||!V3.lv)return;
  if(b.dataset.v3w){VOPT.walls=b.dataset.v3w;Object.values(V3.lv).forEach(L=>buildWalls(L.l));$$('[data-v3w]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.v3w===VOPT.walls)))}
  if(b.dataset.v3c)frame3(b.dataset.v3c);
+ if(b.dataset.v3only){const o=b.dataset.v3only;Object.keys(LEG3).forEach(k=>LEG3[k]=o==='all'||(o==='drain'?(k==='drain'||k==='dvent'):(k==='cold'||k==='hot')));if(o==='drain'){VOPT.ghost=true;applyGhost()}applyView();renderSide3()}
  if(b.dataset.v3png!==undefined)V3.R.domElement.toBlob(bl=>{if(bl)download(((ST.P.nombre||'modelo').toLowerCase().replace(/[^a-z0-9]+/gi,'-'))+'-3d.png',bl,'image/png')},'image/png')});
 $('#side3').addEventListener('change',e=>{const t=e.target;if(t.dataset.v3lv===undefined||!V3.lv)return;const id=t.value;V3.solo=id||null;lvOrder().forEach(l=>LEGLV[l.id]=!id||l.id===id);applyView();renderSide3();
  if(id){const l=ST.P.levels.find(x=>x.id===id);const st=V3.st;st.tg.set(0,l.elev+lvOff(l)+1.2,0);st.auto=false}else frame3('iso')});
 $('#side3').addEventListener('input',e=>{const t=e.target;if(!V3.lv)return;
  if(t.dataset.v3x!==undefined){VOPT.explode=+t.value;applyView();buildRoof();const lab=t.parentElement.querySelector('b');if(lab)lab.textContent=fmt(VOPT.explode,1)+' m';frame3('iso')}
- if(t.dataset.v3o){VOPT[t.dataset.v3o]=t.checked;if(t.dataset.v3o==='roof')buildRoof();if(t.dataset.v3o==='labels'||t.dataset.v3o==='plan'){Object.values(V3.lv).forEach(L=>{if(!L.planMesh)return;const pt=planTexture(L.l);L.planMesh.material.map.dispose();L.planMesh.material.map=pt.t;L.planMesh.material.needsUpdate=true})}applyView()}});
+ if(t.dataset.v3o){VOPT[t.dataset.v3o]=t.checked;if(t.dataset.v3o==='roof')buildRoof();if(t.dataset.v3o==='ghost')applyGhost();if(t.dataset.v3o==='labels'||t.dataset.v3o==='plan'){Object.values(V3.lv).forEach(L=>{if(!L.planMesh)return;const pt=planTexture(L.l);L.planMesh.material.map.dispose();L.planMesh.material.map=pt.t;L.planMesh.material.needsUpdate=true})}applyView()}});

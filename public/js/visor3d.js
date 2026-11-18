@@ -3,7 +3,7 @@ const V3={};const LEG3={};Object.keys(NETS).forEach(k=>LEG3[k]=true);const LEGLV
 const VOPT={walls:'cut',explode:null,roof:false,labels:true,plan:true,ground:true,cut:1.15};
 async function show3D(rebuild){const R=ST.R;$('#msg3').hidden=!!(R&&!R.error);if(!R||R.error){renderSide3();return}
  try{if(!window.THREE)await loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js')}catch(e){$('#msg3').hidden=false;$('#msg3').textContent='No se pudo cargar el motor 3D. Revisa la conexión y recarga.';return}
- if(VOPT.explode===null)VOPT.explode=ST.P.levels.length>1?2.2:0;
+ if(VOPT.explode===null||V3.expFor!==ST.P.id){VOPT.explode=ST.P.levels.length>4?0:ST.P.levels.length>1?2.2:0;V3.expFor=ST.P.id;V3.solo=null}
  init3D();if(rebuild||V3.builtFor!==R){build3D(R);V3.builtFor=R}else renderSide3()}
 function init3D(){if(V3.R)return;const cv=$('#c3d');const R3=new THREE.WebGLRenderer({canvas:cv,antialias:true,preserveDrawingBuffer:true});R3.setPixelRatio(Math.min(devicePixelRatio||1,2));
  const scene=new THREE.Scene();scene.background=new THREE.Color('#0e1620');const cam=new THREE.PerspectiveCamera(34,1,0.1,500);
@@ -97,14 +97,25 @@ function buildRoof(){const g=V3.roof;disposeGroup(g);const P=ST.P;if(!VOPT.roof)
  const quad=(a,b,cc,d)=>{const geo=new THREE.BufferGeometry().setFromPoints([a,b,cc,a,cc,d]);geo.computeVertexNormals();g.add(new THREE.Mesh(geo,M3().roof));const e=new THREE.LineSegments(new THREE.EdgesGeometry(geo),M3().edge);g.add(e)};
  quad(v(x0,y0,zb),v(xm,y0,zb+rh),v(xm,y1,zb+rh),v(x0,y1,zb));quad(v(x1,y0,zb),v(xm,y0,zb+rh),v(xm,y1,zb+rh),v(x1,y1,zb));
  [y0,y1].forEach(y=>{const geo=new THREE.BufferGeometry().setFromPoints([v(x0,y,zb),v(xm,y,zb+rh),v(x1,y,zb)]);g.add(new THREE.Mesh(geo,M3().roof))});g.position.y=lvOff(t)}
+// redes: una malla combinada por nivel y sistema (miles de tramos sin perder fluidez); el picking usa el índice de triángulo
 function buildNets(P3){Object.values(V3.lv).forEach(L=>disposeGroup(L.nets));disposeGroup(V3.all);V3.nets={};const c=V3.c,Y=new THREE.Vector3(0,1,0);V3.netMeshes=[];
  const matOf={};const mat=k=>matOf[k]||(matOf[k]=new THREE.MeshStandardMaterial({color:new THREE.Color(NET_COLOR(k)),emissive:new THREE.Color(NET_COLOR(k)).multiplyScalar(0.22),roughness:.4,metalness:.15}));
- for(const k in P3)P3[k].forEach(e=>{const g=e.lv==='all'?V3.all:(V3.lv[e.lv]?V3.lv[e.lv].nets:V3.all);const p=e.p;const r=k==='power'?0.016:Math.max(0.02,e.r*1.5);
-  for(let i=1;i<p.length;i++){const a=V(p[i-1],c),b=V(p[i],c),dv=b.clone().sub(a),L=dv.length();if(L<1e-4)continue;
-   const geo=k==='vent'?new THREE.BoxGeometry(r*2,L,r*1.6):new THREE.CylinderGeometry(r,r,L,k==='power'?6:12);const m=new THREE.Mesh(geo,mat(k));m.position.copy(a).add(b).multiplyScalar(.5);m.quaternion.setFromUnitVectors(Y,dv.normalize());m.userData={k,d:e.d,lv:e.lv};g.add(m);V3.netMeshes.push(m);
-   if(k!=='vent'&&k!=='power'){const s=new THREE.Mesh(new THREE.SphereGeometry(r*1.15,10,8),mat(k));s.position.copy(b);s.userData=m.userData;g.add(s)}}})}
+ let nSeg=0;for(const k in P3)P3[k].forEach(e=>nSeg+=e.p.length-1);const big=nSeg>2500,RS=big?6:12;
+ const B=new Map();const bucket=(g,k)=>{const key=g.uuid+'|'+k;let b=B.get(key);if(!b){b={g,k,pos:[],nor:[],idx:[],tri:[],info:[],vc:0};B.set(key,b)}return b};
+ const m4=new THREE.Matrix4(),q=new THREE.Quaternion(),sc=new THREE.Vector3(1,1,1);
+ const put=(b,geo,pos,quat,ud)=>{m4.compose(pos,quat,sc);geo.applyMatrix4(m4);const P=geo.attributes.position.array,N=geo.attributes.normal.array,I=geo.index?geo.index.array:null,base=b.vc,id=b.info.length;b.info.push(ud);
+  for(let i=0;i<P.length;i++){b.pos.push(P[i]);b.nor.push(N[i])}b.vc+=P.length/3;
+  if(I){for(let i=0;i<I.length;i++)b.idx.push(I[i]+base);for(let t=0;t<I.length/3;t++)b.tri.push(id)}else{for(let i=0;i<P.length/3;i++)b.idx.push(base+i);for(let t=0;t<P.length/9;t++)b.tri.push(id)}geo.dispose()};
+ const nq=new THREE.Quaternion();
+ for(const k in P3)P3[k].forEach(e=>{const g=e.lv==='all'?V3.all:(V3.lv[e.lv]?V3.lv[e.lv].nets:V3.all);const p=e.p;const r=k==='power'?0.016:Math.max(0.02,e.r*1.5);const b=bucket(g,k);const ud={k,d:e.d,lv:e.lv};
+  for(let i=1;i<p.length;i++){const a=V(p[i-1],c),bb=V(p[i],c),dv=bb.clone().sub(a),L=dv.length();if(L<1e-4)continue;
+   const geo=k==='vent'?new THREE.BoxGeometry(r*2,L,r*1.6):new THREE.CylinderGeometry(r,r,L,k==='power'?(big?4:6):RS,1,big);q.setFromUnitVectors(Y,dv.normalize());put(b,geo,a.clone().add(bb).multiplyScalar(.5),q,ud);
+   if(k!=='vent'&&k!=='power'&&!big)put(b,new THREE.SphereGeometry(r*1.15,10,8),bb,nq,ud)}});
+ B.forEach(b=>{if(!b.vc)return;const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(b.pos,3));geo.setAttribute('normal',new THREE.Float32BufferAttribute(b.nor,3));
+  geo.setIndex(b.vc>65000?new THREE.Uint32BufferAttribute(b.idx,1):new THREE.Uint16BufferAttribute(b.idx,1));geo.computeBoundingSphere();
+  const m=new THREE.Mesh(geo,mat(b.k));m.userData={k:b.k,tri:Int32Array.from(b.tri),info:b.info};if(b.k==='power'||b.k==='vent')m.material.side=THREE.FrontSide;else if(big)m.material.side=THREE.DoubleSide;b.g.add(m);V3.netMeshes.push(m)})}
 function applyView(){const lvs=lvOrder();lvs.forEach(l=>{const L=V3.lv[l.id];if(!L)return;L.g.position.y=lvOff(l);L.g.visible=LEGLV[l.id]!==false;L.nets.children.forEach(m=>m.visible=LEG3[m.userData.k])});
- V3.all.visible=!(VOPT.explode>0);V3.all.children.forEach(m=>m.visible=LEG3[m.userData.k]);V3.ground.visible=VOPT.ground;V3.roof.visible=VOPT.roof;if(V3.roof.children.length)V3.roof.position.y=lvOff(lvs[lvs.length-1]);placeMarkers()}
+ V3.all.visible=!(VOPT.explode>0)&&!V3.solo;V3.all.children.forEach(m=>m.visible=LEG3[m.userData.k]);V3.ground.visible=VOPT.ground;V3.roof.visible=VOPT.roof&&!V3.solo;if(V3.roof.children.length)V3.roof.position.y=lvOff(lvs[lvs.length-1]);placeMarkers()}
 function frame3(p,init){const st=V3.st,[x0,y0,x1,y1]=V3.bb,lvs=lvOrder(),t=lvs[lvs.length-1];const H=t.elev+t.h+lvOff(t);st.tg.set(0,H*0.42,0);const span=Math.max(x1-x0,y1-y0);
  const cr=$('#c3d').getBoundingClientRect();
  const asp=cr.width&&cr.height?cr.width/cr.height:1.6,fit=(sz)=>(sz/2)/Math.tan(34*Math.PI/360)/Math.min(1,asp);
@@ -112,7 +123,7 @@ function frame3(p,init){const st=V3.st,[x0,y0,x1,y1]=V3.bb,lvs=lvOrder(),t=lvs[l
  st.theta=P[0];st.phi=P[1];st.r=Math.max(8,P[2]);if(!init)st.auto=false;if(p==='top')st.tg.set(0,H*0.5,0)}
 function pick3(e){if(!V3.netMeshes)return;const cv=$('#c3d'),r=cv.getBoundingClientRect();const m=new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
  const rc=new THREE.Raycaster();rc.setFromCamera(m,V3.cam);const hits=rc.intersectObjects(V3.netMeshes.filter(x=>x.visible&&x.parent.visible&&x.parent.parent&&x.parent.parent.visible!==false),false);
- const tip=V3.tip;if(!hits.length){tip.hidden=true;return}const u=hits[0].object.userData;const N=normById(ST.R.norm);
+ const tip=V3.tip;if(!hits.length){tip.hidden=true;return}const h0=hits[0],ou=h0.object.userData,u=ou.info?ou.info[ou.tri[h0.faceIndex]]||{k:ou.k}:ou;const N=normById(ST.R.norm);
  const lab=u.k==='power'?'Circuito eléctrico · '+(N.elec.cable||''):u.k==='cold'||u.k==='hot'?`Øi ${u.d} mm · ${N.agua.material}`:u.k==='drain'||u.k==='dvent'?`Ø ${u.d} mm · ${N.desague.material}`:u.k==='vent'?`Ducto Ø ${u.d} mm`:u.k==='fire'?`CPVC Ø ${u.d} mm`:'';
  const lv=u.lv==='all'?'montante en ducto':(ST.P.levels.find(x=>x.id===u.lv)||{}).name||'';
  tip.innerHTML=`<b style="color:var(--${u.k})">${NETS[u.k]}</b><br>${esc(lab)}<br><span class="hint">${esc(lv)}</span>`;tip.style.left=Math.min(r.width-200,e.clientX-r.left+12)+'px';tip.style.top=(e.clientY-r.top+12)+'px';tip.hidden=false}
@@ -122,12 +133,13 @@ function renderSide3(phase){const R=ST.R,P=ST.P;const leg=$('#legend3');
  if(!phase)phase=V3.phase||'final';V3.phase=phase;const nf=(R.first||[]).length;const multi=P.levels.length>1;
  $('#side3').innerHTML=`<div class="card"><h3>Vista</h3>
   <div class="f"><span class="hint">Muros</span><div class="chips">${[['cut','Cortados a 1.15 m'],['full','Completos'],['none','Ocultos']].map(([k,n])=>`<button class="chip" type="button" data-v3w="${k}" aria-pressed="${VOPT.walls===k}">${n}</button>`).join('')}</div></div>
+  ${P.levels.length>2?`<label class="f">Niveles visibles<select data-v3lv><option value="">Todos (${P.levels.length})</option>${lvOrder().map(l=>`<option value="${l.id}"${V3.solo===l.id?' selected':''}>Solo ${esc(l.name)}</option>`).join('')}</select></label>`:''}
   ${multi?`<label class="f">Separación entre pisos (vista explotada): <b class="mono">${fmt(VOPT.explode,1)} m</b><input type="range" min="0" max="5" step="0.1" value="${VOPT.explode}" data-v3x></label>`:''}
   <div class="row"><label class="chk"><input type="checkbox" data-v3o="labels"${VOPT.labels?' checked':''}> Nombres</label><label class="chk"><input type="checkbox" data-v3o="plan"${VOPT.plan?' checked':''}> Plano en el piso</label><label class="chk"><input type="checkbox" data-v3o="roof"${VOPT.roof?' checked':''}> Techo</label><label class="chk"><input type="checkbox" data-v3o="ground"${VOPT.ground?' checked':''}> Terreno</label></div>
   <div class="row"><span class="hint">Cámara</span>${[['iso','3D'],['top','Planta'],['front','Frente'],['side','Lateral']].map(([k,n])=>`<button class="btn sm" type="button" data-v3c="${k}">${n}</button>`).join('')}<button class="btn sm" type="button" data-v3png style="margin-left:auto">Imagen PNG</button></div>
   <p class="hint">Haz clic en una tubería para ver su sistema y diámetro. Shift + arrastrar para desplazar.</p></div>
- <div class="card"><h3>Coordinador · interferencias</h3><div class="cl-h"><b class="${phase==='first'&&nf?'bad':'ok'}">${phase==='first'?nf:R.clash.remaining}</b><span class="hint">${phase==='first'?(nf?'cruces en la primera pasada de los agentes':'cruces: los recorridos no chocan'):`pendientes · ${nf} resueltas por re-ruteo${R.clash.steps.length?` y ${R.clash.steps.length} desvíos`:''}`}</span></div>
-  <div class="clist">${(R.first||[]).map(c=>`<div class="ci${phase==='final'?' ok':''}"><span class="ic">${phase==='final'?'✓':'●'}</span><div>${NETS[c.a]} ↔ ${NETS[c.b]}<small>${esc(c.where)}${phase==='final'?' · re-ruteado':''}</small></div></div>`).join('')||'<p class="hint">Sin cruces entre sistemas.</p>'}</div></div>
+ <div class="card"><h3>Coordinador · interferencias</h3><div class="cl-h"><b class="${R.big?(R.clash.remaining?'warn':'ok'):phase==='first'&&nf?'bad':'ok'}">${R.big?R.clash.remaining:phase==='first'?nf:R.clash.remaining}</b><span class="hint">${R.big?`pendientes de revisión · ${R.clash.initial} cruces detectados, ${R.clash.steps.length} resueltos con desvíos. En proyectos grandes el coordinador trabaja en una pasada.`:phase==='first'?(nf?'cruces en la primera pasada de los agentes':'cruces: los recorridos no chocan'):`pendientes · ${nf} resueltas por re-ruteo${R.clash.steps.length?` y ${R.clash.steps.length} desvíos`:''}`}</span></div>
+  <div class="clist">${(R.first||[]).map(c=>`<div class="ci${phase==='final'?' ok':''}"><span class="ic">${phase==='final'?'✓':'●'}</span><div>${NETS[c.a]} ↔ ${NETS[c.b]}<small>${esc(c.where)}${phase==='final'?' · re-ruteado':''}</small></div></div>`).join('')||(R.big?'':'<p class="hint">Sin cruces entre sistemas.</p>')}</div></div>
   <div class="card"><h3>Resultado · ${esc(normById(R.norm).nombre)}</h3>${SYS.map(s=>{const ck=R.checks.filter(c=>c.sys===s.key),f=ck.filter(c=>c.st==='fail').length,w=ck.filter(c=>c.st==='warn').length;return `<div class="sumr"><span class="sw" style="background:var(${SYS_COL[s.key]})"></span><div><b>${s.short}</b><small>${esc(R.stats[s.key][0])}</small><small>${esc(R.stats[s.key][1])}</small></div><span class="pillst ${f?'bad':w?'warn':'ok'}">${f?f+' ✕':w?w+' !':'✓ '+ck.length}</span></div>`}).join('')}
   <div class="row"><button class="btn sm" type="button" onclick="showView('verif')">Ver verificaciones</button><button class="btn sm" type="button" onclick="showView('metrados')">Ver metrados</button></div></div>`}
 $('#legend3').addEventListener('click',e=>{const b=e.target.closest('[data-l3],[data-lv3]');if(!b)return;if(b.dataset.l3){LEG3[b.dataset.l3]=!LEG3[b.dataset.l3];b.setAttribute('aria-pressed',String(LEG3[b.dataset.l3]))}else{const id=b.dataset.lv3;LEGLV[id]=LEGLV[id]===false;b.setAttribute('aria-pressed',String(LEGLV[id]))}if(V3.lv)applyView()});
@@ -135,6 +147,8 @@ $('#side3').addEventListener('click',e=>{const b=e.target.closest('[data-v3w],[d
  if(b.dataset.v3w){VOPT.walls=b.dataset.v3w;Object.values(V3.lv).forEach(L=>buildWalls(L.l));$$('[data-v3w]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.v3w===VOPT.walls)))}
  if(b.dataset.v3c)frame3(b.dataset.v3c);
  if(b.dataset.v3png!==undefined)V3.R.domElement.toBlob(bl=>{if(bl)download(((ST.P.nombre||'modelo').toLowerCase().replace(/[^a-z0-9]+/gi,'-'))+'-3d.png',bl,'image/png')},'image/png')});
+$('#side3').addEventListener('change',e=>{const t=e.target;if(t.dataset.v3lv===undefined||!V3.lv)return;const id=t.value;V3.solo=id||null;lvOrder().forEach(l=>LEGLV[l.id]=!id||l.id===id);applyView();renderSide3();
+ if(id){const l=ST.P.levels.find(x=>x.id===id);const st=V3.st;st.tg.set(0,l.elev+lvOff(l)+1.2,0);st.auto=false}else frame3('iso')});
 $('#side3').addEventListener('input',e=>{const t=e.target;if(!V3.lv)return;
  if(t.dataset.v3x!==undefined){VOPT.explode=+t.value;applyView();buildRoof();const lab=t.parentElement.querySelector('b');if(lab)lab.textContent=fmt(VOPT.explode,1)+' m';frame3('iso')}
  if(t.dataset.v3o){VOPT[t.dataset.v3o]=t.checked;if(t.dataset.v3o==='roof')buildRoof();if(t.dataset.v3o==='labels'||t.dataset.v3o==='plan'){Object.values(V3.lv).forEach(L=>{if(!L.planMesh)return;const pt=planTexture(L.l);L.planMesh.material.map.dispose();L.planMesh.material.map=pt.t;L.planMesh.material.needsUpdate=true})}applyView()}});

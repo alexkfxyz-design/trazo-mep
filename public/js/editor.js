@@ -90,7 +90,11 @@ function updateBadges(){const b=$('#bVerif');if(!ST.R||ST.R.error){b.hidden=true
 
 /* ---------- calcular ---------- */
 $('#btnCalc').addEventListener('click',runCalc);
-function runCalc(){if(!ST.P)return;const N=normById(ST.P.normId);const R=computeFull(ST.P,N);
+function runCalc(){if(!ST.P||ST.calcBusy)return;const nR=ST.P.levels.reduce((a,l)=>a+l.rooms.length,0);
+ if(nR>60&&typeof progressModal==='function'){ST.calcBusy=true;progressModal(`Calculando ${ST.P.levels.length} niveles y ${nR} ambientes. Los 5 agentes trazan cada red y el coordinador revisa los cruces; en edificios grandes puede tardar hasta un minuto.`);const bar=$('#impBar');if(bar)bar.style.width='35%';
+  setTimeout(()=>{try{runCalc2()}finally{ST.calcBusy=false;const m=$('#impMsg');if(m)$('#modal').hidden=true}},60);return}
+ runCalc2()}
+function runCalc2(){const N=normById(ST.P.normId);const R=computeFull(ST.P,N);
  if(R.error){toast(R.error,5000);showView('plano');renderSide();return}
  ST.prevR=ST.R&&ST.R.norm!==R.norm?ST.R:null;ST.R=R;ST.stale=false;updateStale();updateBadges();ST.autoNav=true;showView('calculo')}
 function renderAfterCalc(anim){updateBadges();drawEd();if(ST.view==='calculo')renderCalc(anim);if(ST.view==='modelo')show3D(true);if(ST.view==='verif')renderVerif();if(ST.view==='metrados')renderBom()}
@@ -101,10 +105,13 @@ const FX_COL={wc:'#cfd8e1',lav:'#cfd8e1',ducha:'#cfd8e1',lavaplatos:'#cfd8e1',la
 const PT_COL={medidor:'--cold',salida:'--drain',tablero:'--power',ducto:'--fg'};
 const ROOM_FILL={dormitorio:'105,179,255',sala:'121,210,230',comedor:'121,210,230',cocina:'240,200,74',bano:'63,140,255',lavanderia:'63,140,255',pasillo:'129,144,160',closet:'129,144,160',estudio:'105,179,255',balcon:'70,194,138'};
 $('#fxType').innerHTML=Object.entries(FX).map(([k,v])=>`<option value="${k}">${v.n}</option>`).join('');
-$('#ptType').innerHTML=Object.entries(PTS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+$('#ptType').innerHTML=Object.entries(PTS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')+'<option value="ductoX">Ducto adicional (edificios)</option>';
+const ptList=l=>{const o=[];for(const k in ST.P.points){const p=ST.P.points[k];if(p&&(k==='ducto'||p.lv===l.id))o.push([k,p])}if(ST.P.points.ducto)(ST.P.shafts||[]).forEach((s,i)=>s&&o.push(['sh:'+i,s]));return o};
+const ptGet=id=>String(id).startsWith('sh:')?(ST.P.shafts||[])[+id.slice(3)]:ST.P.points[id];
+const ptName=id=>String(id).startsWith('sh:')?`Ducto ${+id.slice(3)+2}`:PTS[id];
 const curLv=()=>ST.P&&(ST.P.levels.find(l=>l.id===ST.lv)||ST.P.levels[0]);
 function setTool(t){ST.tool=t;ST.cal=t==='cal'?{pts:[]}:null;$$('#toolbar .tool').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tool===t)));
- const H={sel:'Selecciona y arrastra para mover. Arrastra un vértice de un ambiente para cambiar su tamaño. Arrastra el fondo vacío para desplazarte.',room:'Arrastra para dibujar un ambiente rectangular. Se ajusta a 5 cm.',fx:`Haz clic para colocar: ${FX[$('#fxType').value].n}.`,pt:`Haz clic para ubicar: ${PTS[$('#ptType').value]}.`,del:'Haz clic sobre un elemento para borrarlo.',cal:'Marca dos puntos de una cota conocida del plano (por ejemplo, el ancho 4.55 m).',bg:'Arrastra para alinear el plano de fondo con los ambientes.',op:`Arrastra a lo largo de un muro para colocar: ${$('#opType').value}. Se ajusta al eje del muro.`,stair:'Arrastra un rectángulo para la escalera. Define peldaños y sentido en el panel.'};
+ const H={sel:'Selecciona y arrastra para mover. Arrastra un vértice de un ambiente para cambiar su tamaño. Arrastra el fondo vacío para desplazarte.',room:'Arrastra para dibujar un ambiente rectangular. Se ajusta a 5 cm.',fx:`Haz clic para colocar: ${FX[$('#fxType').value].n}.`,pt:`Haz clic para ubicar: ${$('#ptType').value==='ductoX'?'un ducto vertical adicional':PTS[$('#ptType').value]}.`,del:'Haz clic sobre un elemento para borrarlo.',cal:'Marca dos puntos de una cota conocida del plano (por ejemplo, el ancho 4.55 m).',bg:'Arrastra para alinear el plano de fondo con los ambientes.',op:`Arrastra a lo largo de un muro para colocar: ${$('#opType').value}. Se ajusta al eje del muro.`,stair:'Arrastra un rectángulo para la escalera. Define peldaños y sentido en el panel.'};
  $('#edhelp').textContent=H[t]||'';drawEd();renderSide()}
 $('#toolbar').addEventListener('click',e=>{const b=e.target.closest('[data-tool]');if(!b||e.target.tagName==='SELECT')return;setTool(b.dataset.tool)});
 $('#fxType').addEventListener('change',()=>setTool('fx'));$('#opType').addEventListener('change',()=>setTool('op'));$('#ptType').addEventListener('change',()=>setTool('pt'));
@@ -121,7 +128,7 @@ new ResizeObserver(()=>{if(ST.view==='plano'){resizeEd();drawEd()}}).observe(cv)
 const M2S=(x,y)=>[x*ST.cam.k+ST.cam.ox,y*ST.cam.k+ST.cam.oy];
 const S2M=(sx,sy)=>[(sx-ST.cam.ox)/ST.cam.k,(sy-ST.cam.oy)/ST.cam.k];
 function levelBounds(l){let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;const e=(x,y)=>{x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y)};
- l.rooms.forEach(r=>{e(r.x0,r.y0);e(r.x1,r.y1)});l.fixtures.forEach(f=>e(f.x,f.y));for(const k in ST.P.points){const p=ST.P.points[k];if(p&&(k==='ducto'||p.lv===l.id))e(p.x,p.y)}
+ l.rooms.forEach(r=>{e(r.x0,r.y0);e(r.x1,r.y1)});l.fixtures.forEach(f=>e(f.x,f.y));for(const [k,p] of ptList(l))e(p.x,p.y)
  if(!isFinite(x0)&&l.bg&&l.bg.src){const im=bgImg(l);if(im&&im.naturalWidth){e(l.bg.ox,l.bg.oy);e(l.bg.ox+im.naturalWidth/l.bg.pxPerM,l.bg.oy+im.naturalHeight/l.bg.pxPerM)}}
  if(!isFinite(x0)){x0=0;y0=0;x1=10;y1=10}return [x0,y0,x1,y1]}
 function fitView(){resizeEd();const l=curLv();if(!l)return;const [x0,y0,x1,y1]=levelBounds(l),W=cv.width,H=cv.height,pad=40*DPR;
@@ -169,10 +176,10 @@ function drawEd(){if(!ST.P||ST.view!=='plano')return;resizeEd();const l=curLv();
   ctx.beginPath();if(f.type==='terma'||f.type==='extractor'||f.type==='lavadora')ctx.arc(x,y,s,0,7);else ctx.rect(x-s,y-s,2*s,2*s);ctx.fill();ctx.stroke();
   ctx.fillStyle=FX_COL[f.type]||'#cfd8e1';ctx.font=`600 ${fsz*0.8}px "IBM Plex Mono",monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(FX[f.type].ab,x,y+0.5);ctx.textBaseline='alphabetic'});
  // puntos
- for(const kk in ST.P.points){const p=ST.P.points[kk];if(!p||(kk!=='ducto'&&p.lv!==l.id))continue;const [x,y]=M2S(p.x,p.y);const s=fsz*1.15;const sel=ST.sel&&ST.sel.t==='pt'&&ST.sel.id===kk;
-  ctx.fillStyle=css(PT_COL[kk]);ctx.strokeStyle=sel?css('--brand'):'#0b1016';ctx.lineWidth=2*DPR;ctx.beginPath();
-  if(kk==='ducto'){ctx.rect(x-s,y-s*0.6,2*s,1.2*s)}else{ctx.moveTo(x,y-s);ctx.lineTo(x+s,y);ctx.lineTo(x,y+s);ctx.lineTo(x-s,y)}ctx.closePath();ctx.fill();ctx.stroke();
-  ctx.fillStyle='rgba(219,228,236,.95)';ctx.font=`600 ${10*DPR}px "IBM Plex Sans",sans-serif`;ctx.textAlign='left';ctx.fillText(PTS[kk].split(' ')[0]+(kk==='ducto'?' (shaft)':''),x+s+4*DPR,y+4*DPR)}
+ for(const [kk,p] of ptList(l)){const isD=kk==='ducto'||kk.startsWith('sh:');const [x,y]=M2S(p.x,p.y);const s=fsz*1.15;const sel=ST.sel&&ST.sel.t==='pt'&&ST.sel.id===kk;
+  ctx.fillStyle=css(PT_COL[isD?'ducto':kk]);ctx.strokeStyle=sel?css('--brand'):'#0b1016';ctx.lineWidth=2*DPR;ctx.beginPath();
+  if(isD){ctx.rect(x-s,y-s*0.6,2*s,1.2*s)}else{ctx.moveTo(x,y-s);ctx.lineTo(x+s,y);ctx.lineTo(x,y+s);ctx.lineTo(x-s,y)}ctx.closePath();ctx.fill();ctx.stroke();
+  ctx.fillStyle='rgba(219,228,236,.95)';ctx.font=`600 ${10*DPR}px "IBM Plex Sans",sans-serif`;ctx.textAlign='left';ctx.fillText(isD?(kk==='ducto'?'Ducto (shaft)':ptName(kk)):PTS[kk].split(' ')[0],x+s+4*DPR,y+4*DPR)}
  // dibujo en curso
  if(drag&&drag.mode==='new'&&drag.kind==='op'){const [ax,ay]=M2S(drag.x0,drag.y0);const horiz=Math.abs(drag.x1-drag.x0)>=Math.abs(drag.y1-drag.y0);const [bx,by]=M2S(horiz?drag.x1:drag.x0,horiz?drag.y0:drag.y1);ctx.strokeStyle=css('--brand');ctx.lineWidth=3*DPR;ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke()}
  else if(drag&&drag.mode==='new'){const [ax,ay]=M2S(drag.x0,drag.y0),[bx,by]=M2S(drag.x1,drag.y1);ctx.setLineDash([6*DPR,4*DPR]);ctx.strokeStyle=css('--brand');ctx.lineWidth=2*DPR;ctx.strokeRect(ax,ay,bx-ax,by-ay);ctx.setLineDash([]);
@@ -182,12 +189,12 @@ function drawEd(){if(!ST.P||ST.view!=='plano')return;resizeEd();const l=curLv();
 /* interacción */
 let drag=null;const snap=v=>Math.round(v*20)/20;const pointers=new Map();let pinch=null;
 function hit(l,mx,my){const tol=Math.max(0.18,10*DPR/ST.cam.k);
- for(const kk in ST.P.points){const p=ST.P.points[kk];if(p&&(kk==='ducto'||p.lv===l.id)&&Math.hypot(p.x-mx,p.y-my)<tol*1.3)return {t:'pt',id:kk}}
+ for(const [kk,p] of ptList(l)){if(Math.hypot(p.x-mx,p.y-my)<tol*1.3)return {t:'pt',id:kk}}
  for(let i=l.fixtures.length-1;i>=0;i--){const f=l.fixtures[i];if(Math.hypot(f.x-mx,f.y-my)<tol*1.3)return {t:'fx',id:f.id}}
  for(const o of (l.openings||[])){const dx=o.x1-o.x0,dy=o.y1-o.y0,L2=dx*dx+dy*dy||1e-9,t=Math.max(0,Math.min(1,((mx-o.x0)*dx+(my-o.y0)*dy)/L2));if(Math.hypot(o.x0+t*dx-mx,o.y0+t*dy-my)<tol)return {t:'op',id:o.id}}
  for(const s of (l.stairs||[]))if(mx>=s.x0&&mx<=s.x1&&my>=s.y0&&my<=s.y1)return {t:'stair',id:s.id};
  for(let i=l.rooms.length-1;i>=0;i--){const r=l.rooms[i];if(mx>=r.x0&&mx<=r.x1&&my>=r.y0&&my<=r.y1)return {t:'room',id:r.id}}return null}
-const itemOf=(l,h)=>h.t==='room'?l.rooms.find(r=>r.id===h.id):h.t==='fx'?l.fixtures.find(f=>f.id===h.id):h.t==='op'?(l.openings||[]).find(o=>o.id===h.id):h.t==='stair'?(l.stairs||[]).find(s=>s.id===h.id):ST.P.points[h.id];
+const itemOf=(l,h)=>h.t==='room'?l.rooms.find(r=>r.id===h.id):h.t==='fx'?l.fixtures.find(f=>f.id===h.id):h.t==='op'?(l.openings||[]).find(o=>o.id===h.id):h.t==='stair'?(l.stairs||[]).find(s=>s.id===h.id):ptGet(h.id);
 const WCACHE={};function wallsOf(l){const key=l.id+JSON.stringify([l.rooms,l.openings||[]]);if(WCACHE[l.id]&&WCACHE[l.id].key===key)return WCACHE[l.id].wm;const wm=wallModel(l);WCACHE[l.id]={key,wm};return wm}
 function cornerHit(l,sx,sy){if(!ST.sel||ST.sel.t!=='room')return null;const r=l.rooms.find(x=>x.id===ST.sel.id);if(!r)return null;const cs=[['x0','y0'],['x1','y0'],['x1','y1'],['x0','y1']];
  for(const [a,b] of cs){const [x,y]=M2S(r[a],r[b]);if(Math.hypot(x-sx,y-sy)<10*DPR)return {r,a,b}}return null}
@@ -198,7 +205,7 @@ cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);pointers
  if(e.button===1||(t==='sel'&&e.altKey)){drag={mode:'pan',sx,sy,ox:ST.cam.ox,oy:ST.cam.oy};return}
  if(t==='room'||t==='stair'||t==='op'){drag={mode:'new',kind:t,x0:snap(mx),y0:snap(my),x1:snap(mx),y1:snap(my)};return}
  if(t==='fx'){const f={id:uid('f'),type:$('#fxType').value,x:snap(mx),y:snap(my)};l.fixtures.push(f);ST.sel={t:'fx',id:f.id};markDirty();renderSide();drawEd();return}
- if(t==='pt'){const k=$('#ptType').value;ST.P.points[k]=k==='ducto'?{x:snap(mx),y:snap(my)}:{lv:l.id,x:snap(mx),y:snap(my)};ST.sel={t:'pt',id:k};markDirty();renderSide();drawEd();return}
+ if(t==='pt'){const k=$('#ptType').value;if(k==='ductoX'){const q={x:snap(mx),y:snap(my)};if(!ST.P.points.ducto){ST.P.points.ducto=q;ST.sel={t:'pt',id:'ducto'}}else{(ST.P.shafts=ST.P.shafts||[]).push(q);ST.sel={t:'pt',id:'sh:'+(ST.P.shafts.length-1)}}markDirty();renderSide();drawEd();return}ST.P.points[k]=k==='ducto'?{x:snap(mx),y:snap(my)}:{lv:l.id,x:snap(mx),y:snap(my)};ST.sel={t:'pt',id:k};markDirty();renderSide();drawEd();return}
  if(t==='del'){const h=hit(l,mx,my);if(h){delItem(h);}return}
  if(t==='cal'){ST.cal.pts.push([mx,my]);if(ST.cal.pts.length>2)ST.cal.pts=[[mx,my]];renderSide();drawEd();return}
  if(t==='bg'){if(l.bg)drag={mode:'bg',mx,my,ox:l.bg.ox,oy:l.bg.oy};return}
@@ -233,7 +240,7 @@ cv.addEventListener('pointerup',endPtr);cv.addEventListener('pointercancel',endP
 cv.addEventListener('wheel',e=>{e.preventDefault();const [sx,sy]=evPos(e);zoomAt(e.deltaY<0?1.12:1/1.12,sx,sy)},{passive:false});
 addEventListener('keydown',e=>{if(ST.view!=='plano'||/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;
  if((e.key==='Delete'||e.key==='Backspace')&&ST.sel){e.preventDefault();delItem(ST.sel)}if(e.key==='Escape'){ST.sel=null;setTool('sel')}});
-function delItem(h){const l=curLv();if(h.t==='room')l.rooms=l.rooms.filter(r=>r.id!==h.id);if(h.t==='fx')l.fixtures=l.fixtures.filter(f=>f.id!==h.id);if(h.t==='pt')delete ST.P.points[h.id];if(h.t==='op')l.openings=(l.openings||[]).filter(o=>o.id!==h.id);if(h.t==='stair')l.stairs=(l.stairs||[]).filter(o=>o.id!==h.id);ST.sel=null;markDirty();renderSide();drawEd()}
+function delItem(h){const l=curLv();if(h.t==='room')l.rooms=l.rooms.filter(r=>r.id!==h.id);if(h.t==='fx')l.fixtures=l.fixtures.filter(f=>f.id!==h.id);if(h.t==='pt'){if(String(h.id).startsWith('sh:'))ST.P.shafts.splice(+h.id.slice(3),1);else{delete ST.P.points[h.id];if(h.id==='ducto'&&ST.P.shafts&&ST.P.shafts.length)ST.P.points.ducto=ST.P.shafts.shift()}}if(h.t==='op')l.openings=(l.openings||[]).filter(o=>o.id!==h.id);if(h.t==='stair')l.stairs=(l.stairs||[]).filter(o=>o.id!==h.id);ST.sel=null;markDirty();renderSide();drawEd()}
 
 /* panel lateral */
 function renderSide(){if(!ST.P)return;const l=curLv(),P=ST.P,s=ST.sel;let h='';
@@ -252,7 +259,7 @@ function renderSide(){if(!ST.P)return;const l=curLv(),P=ST.P,s=ST.sel;let h='';
    else if(s.t==='stair')h+=`<div class="card"><h3>Escalera</h3><div class="g2"><label class="f">Peldaños<input type="number" step="1" min="3" data-f="steps" value="${it.steps}"></label><label class="f">Sube hacia<select data-f="dir">${[['-y','arriba del plano'],['y','abajo del plano'],['x','la derecha'],['-x','la izquierda']].map(([k,v])=>`<option value="${k}"${k===it.dir?' selected':''}>${v}</option>`).join('')}</select></label></div><p class="hint">Sube hasta el nivel siguiente.</p><button class="btn sm danger" data-side="del" type="button">Borrar escalera</button></div>`;
    else if(s.t==='fx')h+=`<div class="card"><h3>Aparato</h3><label class="f">Tipo<select data-f="type">${Object.entries(FX).map(([k,v])=>`<option value="${k}"${k===it.type?' selected':''}>${v.n}</option>`).join('')}</select></label>
    <div class="g2"><label class="f">X (m)<input type="number" step="0.05" data-f="x" value="${it.x}"></label><label class="f">Y (m)<input type="number" step="0.05" data-f="y" value="${it.y}"></label></div><p class="hint">${(roomOfPt(l,it.x,it.y)||{name:'Fuera de un ambiente'}).name}</p><button class="btn sm danger" data-side="del" type="button">Borrar aparato</button></div>`;
-   else h+=`<div class="card"><h3>${PTS[s.id]}</h3><div class="g2"><label class="f">X (m)<input type="number" step="0.05" data-f="x" value="${it.x}"></label><label class="f">Y (m)<input type="number" step="0.05" data-f="y" value="${it.y}"></label></div>${s.id==='ducto'?'<p class="hint">El ducto vertical es común a todos los niveles: por él suben el montante de desagüe y los alimentadores.</p>':''}<button class="btn sm danger" data-side="del" type="button">Quitar punto</button></div>`}}
+   else h+=`<div class="card"><h3>${ptName(s.id)}</h3><div class="g2"><label class="f">X (m)<input type="number" step="0.05" data-f="x" value="${it.x}"></label><label class="f">Y (m)<input type="number" step="0.05" data-f="y" value="${it.y}"></label></div>${s.id==='ducto'||String(s.id).startsWith('sh:')?`<p class="hint">El ducto vertical es común a todos los niveles: por él suben montantes de desagüe, agua, ventilación y alimentadores.${(ST.P.shafts||[]).length?` El proyecto tiene ${(ST.P.shafts||[]).length+1} ductos; cada aparato se conecta al más cercano.`:''}</p>`:''}<button class="btn sm danger" data-side="del" type="button">Quitar punto</button></div>`}}
  // requisitos
  const req=[['medidor','Medidor de agua'],['salida','Salida de desagüe'],['tablero','Tablero eléctrico']];if(P.levels.length>1)req.push(['ducto','Ducto vertical']);
  const nR=P.levels.reduce((a,x)=>a+x.rooms.length,0),nF=P.levels.reduce((a,x)=>a+x.fixtures.length,0);
@@ -261,7 +268,7 @@ function renderSide(){if(!ST.P)return;const l=curLv(),P=ST.P,s=ST.sel;let h='';
  // nivel
  h+=`<div class="card"><h3>Nivel · ${esc(l.name)}</h3><div class="g2"><label class="f">Nombre<input type="text" data-lvf="name" value="${esc(l.name)}"></label><label class="f">Nivel de piso (m)<input type="number" step="0.05" data-lvf="elev" value="${l.elev}"></label>
   <label class="f">Altura libre (m)<input type="number" step="0.05" min="2" data-lvf="h" value="${l.h}"></label></div>
-  <h4>Plano de fondo</h4><div class="row"><button class="btn sm" data-side="upbg" type="button">Subir PDF o imagen</button>${l.bg&&l.bg.src?`<button class="btn sm" data-side="cal" type="button">Calibrar</button><button class="btn sm danger" data-side="rmbg" type="button">Quitar</button>`:''}</div>
+  <h4>Plano de fondo</h4><div class="row"><button class="btn sm primary" data-side="imp" type="button">Importar pisos (PDF, DXF, DWG)</button><button class="btn sm" data-side="upbg" type="button">Solo fondo</button>${l.bg&&l.bg.src?`<button class="btn sm" data-side="cal" type="button">Calibrar</button><button class="btn sm danger" data-side="rmbg" type="button">Quitar</button>`:''}</div>
   ${ST.pdf&&ST.pdf.lv===l.id&&ST.pdf.n>1?`<label class="f">Página del PDF<select data-side-sel="pdfpage">${Array.from({length:ST.pdf.n},(_,i)=>`<option value="${i+1}"${i+1===ST.pdf.page?' selected':''}>Página ${i+1}</option>`).join('')}</select></label>`:''}
   ${l.bg&&l.bg.src?`<label class="f">Opacidad<input type="range" min="0.1" max="1" step="0.05" data-bgop value="${l.bg.op??0.55}"></label>`:'<p class="hint">Sube la planta de este nivel, calíbrala con una cota y dibuja los ambientes encima.</p>'}
   ${l.bg&&l.bg.src?`<button class="btn sm" data-side="detect" type="button">✨ Detectar ambientes en este plano</button><p class="hint">Para imágenes o PDF escaneados: calibra la escala primero. La IA lee los nombres y la app mide los recintos hasta los muros.</p>`:''}
@@ -293,6 +300,7 @@ $('#side').addEventListener('click',e=>{const b=e.target.closest('[data-side],[d
  const a=b.dataset.side;
  if(a==='del'&&ST.sel)delItem(ST.sel);
  if(a==='upbg')$('#fileBg').click();
+ if(a==='imp'){IMPS.nextMode=ST.P.levels.some(x=>x.rooms.length)?'add':'new';$('#fileImport').click()}
  if(a==='detect')runDetect();
  if(a==='rmbg'){l.bg=null;markDirty();renderSide();drawEd()}
  if(a==='cal')setTool('cal');
@@ -304,7 +312,8 @@ $('#side').addEventListener('click',e=>{const b=e.target.closest('[data-side],[d
 
 /* subir fondo (PDF o imagen) */
 $('#fileBg').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const l=curLv();
- if((f.type==='application/pdf'||/\.pdf$/i.test(f.name))&&!ST.P.levels.some(x=>x.rooms.length)){if(await runImport(f))return}
+ if(/\.(dxf|dwg)$/i.test(f.name)){openImport([f],ST.P.levels.some(x=>x.rooms.length)?'add':'new');return}
+ if((f.type==='application/pdf'||/\.pdf$/i.test(f.name))&&!ST.P.levels.some(x=>x.rooms.length)){openImport([f],'new');return}
  try{if(f.type==='application/pdf'||/\.pdf$/i.test(f.name)){toast('Leyendo PDF…');await ensurePdf();const buf=await f.arrayBuffer();const doc=await pdfjsLib.getDocument({data:buf}).promise;ST.pdf={doc,n:doc.numPages,page:1,lv:l.id,name:f.name};await renderPdfPage()}
   else{const url=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});const im=new Image();await new Promise(r=>{im.onload=r;im.src=url});
    l.bg={src:url,pxPerM:im.naturalWidth/20,ox:0,oy:0,op:0.6,show:true};afterBg()}}
@@ -344,3 +353,6 @@ window.addEventListener('trazo-cloud',()=>{const c=window.TrazoCloud;renderUser(
  let first=true;c.onAuth(async u=>{renderUser();await loadNorms();if(ST.view==='proyectos')renderProjects();if(ST.view==='normas')renderNormas();
   if(u&&!first)toast(`Sesión iniciada: ${u.email||u.displayName}`);
   if(u&&ST.P&&ST.P.example){const last=ST.bootLast&&ST.bootLast!=='ejemplo-mutilla'?ST.bootLast:null;ST.bootLast=null;if(last){try{const list=await c.listProjects();const p=list.find(x=>x.id===last);if(p)setProject(JSON.parse(p.json))}catch(e){}}}first=false})});
+
+/* arrastrar archivos sobre el editor */
+['dragover','drop'].forEach(ev=>document.getElementById('ed').addEventListener(ev,e=>{e.preventDefault();if(ev==='drop'){const fs=[...e.dataTransfer.files].filter(f=>/\.(pdf|dxf|dwg)$/i.test(f.name));if(fs.length)openImport(fs,ST.P.levels.some(x=>x.rooms.length)?'add':'new')}}));

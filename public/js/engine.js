@@ -1,6 +1,6 @@
 /* ================= Trazo MEP · motor de cálculo ================= */
-const CELL=0.1;
-const ROOM_TYPES={dormitorio:'Dormitorio',sala:'Sala / living',comedor:'Comedor',cocina:'Cocina',bano:'Baño',lavanderia:'Lavandería',pasillo:'Pasillo / circulación',closet:'Closet / walking',estudio:'Estudio',balcon:'Balcón / terraza'};
+let CELL=0.1;
+const ROOM_TYPES={dormitorio:'Dormitorio',sala:'Sala / living',comedor:'Comedor',cocina:'Cocina',bano:'Baño',lavanderia:'Lavandería',pasillo:'Pasillo / circulación',closet:'Closet / walking',estudio:'Estudio',balcon:'Balcón / terraza',local:'Local comercial',tecnico:'Sala técnica'};
 const FX={
  wc:{n:'Inodoro',ab:'WC',dr:1,cold:1,hot:0,zs:0.2},
  lav:{n:'Lavamanos',ab:'LV',dr:1,cold:1,hot:1,zs:0.55},
@@ -35,7 +35,7 @@ const BUILTIN_NORMS=[
   ug:{wc:3,lav:1,ducha:2,lavaplatos:3,lavadora:3,lavadero:3},diams:[['½"',13.8],['¾"',19.9],['1"',26.0],['1¼"',32.1]]},
  elec:{ref:'NCh Elec. 4/2003',cable:'Conductor THHN / EVA',tension:220,tension_ded:220,caida_max:3,sec_min_luz:1.5,sec_min_tomas:2.5,max_luz:15,max_tomas:10,va_luz:100,va_toma:150,m2_luz:12,tomas_cada_m:0,
   va:{cocina:4000,terma:1500,lavadora:1000,extractor:40},diferencial:true,dist_toma_ducha:0.6,
-  tomas_min:{dormitorio:3,sala:3,comedor:2,cocina:3,bano:1,lavanderia:2,pasillo:1,closet:0,estudio:3,balcon:0},
+  tomas_min:{dormitorio:3,sala:3,comedor:2,cocina:3,bano:1,lavanderia:2,pasillo:1,closet:0,estudio:3,balcon:0,local:4,tecnico:1},
   ded:{cocina:true,terma:true,lavadora:true,tomas_cocina:false,tomas_bano:false},
   secciones:[[1.5,15],[2.5,21],[4,28],[6,36],[10,50],[16,66]],interruptores:[10,16,20,25,32,40,50,63],demanda:[[3000,1],[1e9,0.35]]},
  vent:{ref:'OGUC · ventilación de recintos',ren_bano:12,ren_cocina:15,q_bano_ls:0,q_cocina_ls:0,l_max:8,v_max:5,diams:[100,125,150]},
@@ -47,7 +47,7 @@ const BUILTIN_NORMS=[
   ug:{wc:3,lav:1,ducha:2,lavaplatos:3,lavadora:3,lavadero:3},diams:[['½"',15.8],['¾"',20.9],['1"',26.6],['1¼"',35.1]]},
  elec:{ref:'CNE-Utilización · RNE EM.010',cable:'Conductor LSOH-80',tension:220,tension_ded:220,caida_max:2.5,sec_min_luz:2.5,sec_min_tomas:4,max_luz:12,max_tomas:12,va_luz:100,va_toma:180,m2_luz:12,tomas_cada_m:0,
   va:{cocina:5000,terma:1500,lavadora:1000,extractor:40},diferencial:true,dist_toma_ducha:0.6,
-  tomas_min:{dormitorio:3,sala:4,comedor:2,cocina:4,bano:1,lavanderia:2,pasillo:1,closet:0,estudio:3,balcon:0},
+  tomas_min:{dormitorio:3,sala:4,comedor:2,cocina:4,bano:1,lavanderia:2,pasillo:1,closet:0,estudio:3,balcon:0,local:4,tecnico:1},
   ded:{cocina:true,terma:true,lavadora:true,tomas_cocina:false,tomas_bano:false},
   secciones:[[1.5,15],[2.5,21],[4,28],[6,36],[10,50],[16,66]],interruptores:[10,16,20,25,32,40,50,63],demanda:[[2000,1],[1e9,0.35]]},
  vent:{ref:'RNE EM.030 / A.010',ren_bano:10,ren_cocina:15,q_bano_ls:0,q_cocina_ls:0,l_max:8,v_max:5,diams:[100,125,150]},
@@ -59,7 +59,7 @@ const BUILTIN_NORMS=[
   ug:{wc:2.2,lav:0.7,ducha:1.4,lavaplatos:1.4,lavadora:1.4,lavadero:1.4},diams:[['½"',12.1],['¾"',17.0],['1"',22.2],['1¼"',27.5]]},
  elec:{ref:'NEC 2023 · Art. 210/220',cable:'Cable NM-B',tension:120,tension_ded:240,caida_max:3,sec_min_luz:2.08,sec_min_tomas:3.31,max_luz:12,max_tomas:10,va_luz:100,va_toma:180,m2_luz:12,tomas_cada_m:3.6,
   va:{cocina:8000,terma:4500,lavadora:1500,extractor:40},diferencial:true,dist_toma_ducha:0.9,
-  tomas_min:{dormitorio:2,sala:3,comedor:2,cocina:4,bano:1,lavanderia:1,pasillo:1,closet:0,estudio:2,balcon:1},
+  tomas_min:{dormitorio:2,sala:3,comedor:2,cocina:4,bano:1,lavanderia:1,pasillo:1,closet:0,estudio:2,balcon:1,local:4,tecnico:1},
   ded:{cocina:true,terma:true,lavadora:true,tomas_cocina:true,tomas_bano:true},
   secciones:[[2.08,15],[3.31,20],[5.26,30],[8.37,40],[13.3,55],[21.2,70]],interruptores:[15,20,30,40,50,60],demanda:[[3000,1],[120000,0.35],[1e9,0.25]]},
  vent:{ref:'IRC M1505',ren_bano:0,ren_cocina:0,q_bano_ls:24,q_cocina_ls:47,l_max:7.6,v_max:5,diams:[100,125,150]},
@@ -78,6 +78,7 @@ const roomOfPt=(l,x,y)=>{let out=null;for(const r of l.rooms)if(x>=r.x0-1e-6&&x<
 function makeGrid(l,P){let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;const e=(x,y)=>{if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y};
  l.rooms.forEach(r=>{e(r.x0,r.y0);e(r.x1,r.y1)});l.fixtures.forEach(f=>e(f.x,f.y));
  for(const k in P.points){const p=P.points[k];if(p&&(k==='ducto'||p.lv===l.id))e(p.x,p.y)}
+ if(P.points&&P.points.ducto)(P.shafts||[]).forEach(s=>s&&e(s.x,s.y));
  if(!isFinite(x0)){x0=0;y0=0;x1=5;y1=5}
  x0=Math.floor((x0-0.8)/CELL)*CELL;y0=Math.floor((y0-0.8)/CELL)*CELL;x1+=0.8;y1+=0.8;
  const nx=Math.ceil((x1-x0)/CELL)+1,ny=Math.ceil((y1-y0)/CELL)+1,N=nx*ny;
@@ -85,7 +86,8 @@ function makeGrid(l,P){let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;con
  for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const x=x0+i*CELL,y=y0+j*CELL,c=j*nx+i;
   for(let k=0;k<l.rooms.length;k++){const r=l.rooms[k];if(x>=r.x0+0.02&&x<=r.x1-0.02&&y>=r.y0+0.02&&y<=r.y1-0.02)room[c]=k}
   if(room[c]>=0){const r=l.rooms[room[c]];if(Math.min(x-r.x0,r.x1-x,y-r.y0,r.y1-y)<=0.32)near[c]=1}}
- return {l,x0,y0,nx,ny,N,room,near,
+ const sig=JSON.stringify([l.rooms.map(r=>[r.type,r.x0,r.y0,r.x1,r.y1]),l.fixtures.map(f=>[f.type,f.x,f.y]),Object.entries(P.points).filter(([k,p])=>p&&(k==='ducto'||p.lv===l.id)).map(([k,p])=>[k,p.x,p.y]),(P.shafts||[]).map(s=>[s.x,s.y])]);
+ return {l,x0,y0,nx,ny,N,room,near,sig,
   cell(x,y){const i=Math.max(0,Math.min(nx-1,Math.round((x-x0)/CELL))),j=Math.max(0,Math.min(ny-1,Math.round((y-y0)/CELL)));return j*nx+i},
   xy(c){return [rnd2(x0+(c%nx)*CELL),rnd2(y0+((c/nx)|0)*CELL)]}}}
 
@@ -97,22 +99,29 @@ function costMap(G,sys,occ,own){const c=new Float32Array(G.N),p=SYSP[sys],av=G.a
    if((sys==='water'||sys==='power'||sys==='fire')&&G.near[k])v=0.55}
   if(occ[k]&~own)v+=1.5;if(sys==='power'&&(occ[k]&own))v*=0.6;if(av&&(av[k]&~own))v+=25;c[k]=v}
  return c}
-function route(G,cost,sys,src,tgt,stat){if(tgt[src])return [src];const p=SYSP[sys],nx=G.nx,ny=G.ny,S=G.N*5;
- const dist=new Float64Array(S).fill(Infinity),prev=new Int32Array(S).fill(-1),h=new Heap(),s0=src*5+4;dist[s0]=0;h.push(0,s0);
- while(h.k.length){const s=h.pop(),d=h.lastK;if(d>dist[s])continue;stat.n++;const c=(s/5)|0,dr=s%5;
+const RB={S:0,dist:null,prev:null,stamp:null,cur:0};
+function route(G,cost,sys,src,tgt,stat,goal){if(tgt[src])return [src];const p=SYSP[sys],nx=G.nx,ny=G.ny,S=G.N*5;
+ if(RB.S<S){RB.S=S;RB.dist=new Float64Array(S);RB.prev=new Int32Array(S);RB.stamp=new Uint32Array(S);RB.cur=0}
+ const dist=RB.dist,prev=RB.prev,stp=RB.stamp;if(++RB.cur>4e9){RB.stamp.fill(0);RB.cur=1}const cur=RB.cur;
+ const gi=goal>=0?goal%nx:-1,gj=goal>=0?(goal/nx)|0:-1,hw=0.55;const H=c=>gi<0?0:hw*(Math.abs(c%nx-gi)+Math.abs(((c/nx)|0)-gj));
+ const h=new Heap(),s0=src*5+4;dist[s0]=0;prev[s0]=-1;stp[s0]=cur;h.push(H(src),s0);
+ while(h.k.length){const s=h.pop();const c=(s/5)|0,dr=s%5,d=dist[s];if(h.lastK>d+H(c)+1e-9)continue;stat.n++;
   if(tgt[c]){const out=[];let q=s;while(q>=0){out.push((q/5)|0);q=prev[q]}return out.reverse()}
   const i=c%nx,j=(c/nx)|0;
   for(let nd=0;nd<4;nd++){const ni=i+DX[nd],nj=j+DY[nd];if(ni<0||nj<0||ni>=nx||nj>=ny)continue;const nc=nj*nx+ni;
-   let w=cost[nc];if(G.room[nc]!==G.room[c])w+=p.cross;if(dr!==4&&dr!==nd)w+=p.turn;const ns=nc*5+nd,v=d+w;if(v<dist[ns]){dist[ns]=v;prev[ns]=s;h.push(v,ns)}}}
+   let w=cost[nc];if(G.room[nc]!==G.room[c])w+=p.cross;if(dr!==4&&dr!==nd)w+=p.turn;const ns=nc*5+nd,v=d+w;if(stp[ns]!==cur||v<dist[ns]){stp[ns]=cur;dist[ns]=v;prev[ns]=s;h.push(v+H(nc),ns)}}}
  return null}
-function buildTree(G,sys,root,terms,cost,stat,occ,bit){const N=G.N,inTree=new Uint8Array(N),parent=new Int32Array(N).fill(-1),isTerm=new Uint8Array(N),routes=[];
+const TCACHE=new Map();
+function buildTree(G,sys,root,terms,cost,stat,occ,bit){const key=G.sig?sys+'|'+G.sig+'|'+root+'|'+terms.map(t=>t.c+':'+(t.load||0)+':'+(t.dmin||0)).join(','):null;
+ if(key&&TCACHE.has(key)){const C=TCACHE.get(key);for(let c=0;c<G.N;c++)if(C.inTree[c])occ[c]|=bit;C.terms.forEach((t,i)=>{if(terms[i]){terms[i].fail=t.fail}});return {...C,G,terms,cached:true}}
+ const N=G.N,inTree=new Uint8Array(N),parent=new Int32Array(N).fill(-1),isTerm=new Uint8Array(N),routes=[];
  inTree[root]=1;occ[root]|=bit;const [rx,ry]=G.xy(root);
  const ord=terms.slice().sort((a,b)=>{const A=G.xy(a.c),B=G.xy(b.c);return (Math.abs(A[0]-rx)+Math.abs(A[1]-ry))-(Math.abs(B[0]-rx)+Math.abs(B[1]-ry))});
- for(const t of ord){isTerm[t.c]=1;if(inTree[t.c])continue;const path=route(G,cost,sys,t.c,inTree,stat);if(!path){t.fail=true;continue}
+ for(const t of ord){isTerm[t.c]=1;if(inTree[t.c])continue;const path=route(G,cost,sys,t.c,inTree,stat,root);if(!path){t.fail=true;continue}
   for(let k=0;k<path.length-1;k++){parent[path[k]]=path[k+1];inTree[path[k]]=1;occ[path[k]]|=bit}routes.push(path)}
  const load=new Float64Array(N),dm=new Float32Array(N);
  for(const t of terms){if(t.fail)continue;let c=t.c,g=0;while(c>=0&&g++<N){load[c]+=t.load||0;if((t.dmin||0)>dm[c])dm[c]=t.dmin;if(c===root)break;c=parent[c]}}
- return {G,root,inTree,parent,isTerm,load,dm,routes,terms}}
+ const T={G,root,inTree,parent,isTerm,load,dm,routes,terms};if(key)TCACHE.set(key,T);return T}
 function chainCells(T,c){const out=[];let g=0;while(c>=0&&g++<T.G.N){out.push(c);if(c===T.root)break;c=T.parent[c]}return out}
 function treeSegs(T,dOf){const {G,parent,inTree,isTerm,root}=T,N=G.N,kids=new Int32Array(N),only=new Int32Array(N).fill(-1);
  for(let c=0;c<N;c++)if(inTree[c]&&parent[c]>=0){kids[parent[c]]++;only[parent[c]]=c}
@@ -133,8 +142,14 @@ function segDist(p1,q1,p2,q2){const d1=v3.sub(q1,p1),d2=v3.sub(q2,p2),r=v3.sub(p
  const c1=v3.add(p1,v3.mul(d1,s)),c2=v3.add(p2,v3.mul(d2,t));return [vlen(v3.sub(c1,c2)),c1,c2]}
 function allSegs(P3){const out=[];for(const k in P3)P3[k].forEach((e,pi)=>{if(e.nc)return;const p=e.p;for(let i=1;i<p.length;i++){const a=p[i-1],b=p[i];if(vlen(v3.sub(a,b))<1e-4)continue;
  out.push({sys:k,pi,si:i-1,a,b,r:e.r,mnx:Math.min(a[0],b[0])-.3,mxx:Math.max(a[0],b[0])+.3,mny:Math.min(a[1],b[1])-.3,mxy:Math.max(a[1],b[1])+.3,mnz:Math.min(a[2],b[2])-.3,mxz:Math.max(a[2],b[2])+.3})}});return out}
-function detect(P3){const S=allSegs(P3),res=[];for(let i=0;i<S.length;i++){const A=S[i];for(let j=i+1;j<S.length;j++){const B=S[j];if(A.sys===B.sys||NET_SYS[A.sys]===NET_SYS[B.sys]&&!(A.sys==='cold'&&B.sys==='hot'||A.sys==='hot'&&B.sys==='cold'))continue;
- if(A.mxx<B.mnx||B.mxx<A.mnx||A.mxy<B.mny||B.mxy<A.mny||A.mxz<B.mnz||B.mxz<A.mnz)continue;const [d,c1,c2]=segDist(A.a,A.b,B.a,B.b);if(d<A.r+B.r+0.025)res.push({A,B,c1,c2,d})}}return res}
+function detect(P3){const S=allSegs(P3),res=[],B=new Map(),BS=1.0,BZ=1.5;
+ S.forEach((A,i)=>{const i0=Math.floor(A.mnx/BS),i1=Math.floor(A.mxx/BS),j0=Math.floor(A.mny/BS),j1=Math.floor(A.mxy/BS),k0=Math.floor(A.mnz/BZ),k1=Math.floor(A.mxz/BZ);
+  if((i1-i0+1)*(j1-j0+1)*(k1-k0+1)>4000)return;for(let a=i0;a<=i1;a++)for(let b=j0;b<=j1;b++)for(let c=k0;c<=k1;c++){const key=a+','+b+','+c;let L=B.get(key);if(!L)B.set(key,L=[]);L.push(i)}});
+ const seen=new Set();
+ for(const L of B.values()){for(let x=0;x<L.length;x++){const A=S[L[x]];for(let y=x+1;y<L.length;y++){const Bq=S[L[y]];if(A.sys===Bq.sys||NET_SYS[A.sys]===NET_SYS[Bq.sys]&&!(A.sys==='cold'&&Bq.sys==='hot'||A.sys==='hot'&&Bq.sys==='cold'))continue;
+  if(A.mxx<Bq.mnx||Bq.mxx<A.mnx||A.mxy<Bq.mny||Bq.mxy<A.mny||A.mxz<Bq.mnz||Bq.mxz<A.mnz)continue;const pk=L[x]<L[y]?L[x]*1e6+L[y]:L[y]*1e6+L[x];if(seen.has(pk))continue;seen.add(pk);
+  const [d,c1,c2]=segDist(A.a,A.b,Bq.a,Bq.b);if(d<A.r+Bq.r+0.025)res.push(L[x]<L[y]?{A,B:Bq,c1,c2,d}:{A:Bq,B:A,c1:c2,c2:c1,d})}}}
+ return res.sort((p,q)=>(p.A.sys+p.A.pi+'/'+p.A.si).localeCompare(q.A.sys+q.A.pi+'/'+q.A.si)||(p.B.pi-q.B.pi))}
 function resolveClashes(P3){const initial=detect(P3).length,steps=[],ign=new Set(),cnt={};let guard=0;const key=c=>[c.A.sys,c.B.sys].sort().join('|')+v3.mul(v3.add(c.c1,c.c2),0.5).map(v=>Math.round(v*20)).join(',');
  while(guard++<120){const cs=detect(P3).filter(c=>!ign.has(key(c)));if(!cs.length)break;const c=cs[0];
   const Y=PRI[c.A.sys]<PRI[c.B.sys]?{seg:c.A,cp:c.c1,o:c.B,oc:c.c2}:{seg:c.B,cp:c.c2,o:c.A,oc:c.c1};
@@ -144,12 +159,26 @@ function resolveClashes(P3){const initial=detect(P3).length,steps=[],ign=new Set
   else if(!yv){const nz=Y.oc[2]-(Y.seg.r+Y.o.r+0.05);o=[0,0,nz-Y.cp[2]];act=`baja ${fmt(Math.abs(o[2]))} m bajo ${NETS[Y.o.sys].toLowerCase()}`}
   else{o=[-odir[1]*need,odir[0]*need,0];act=`desplaza ${fmt(need)} m`}
   const tP=v3.dot(v3.sub(Y.cp,a),dir),al=Y.o.r+Y.seg.r+0.18;const kk=key(c);cnt[kk]=(cnt[kk]||0)+1;if(cnt[kk]>2){ign.add(kk);continue}const t1=Math.max(0,tP-al),t2=Math.min(L,tP+al),p1=v3.add(a,v3.mul(dir,t1)),p2=v3.add(a,v3.mul(dir,t2));
+  // probar el desvío; si los tramos nuevos chocan con otra red, probar hacia el otro lado; si no, dejarlo para revisión manual
+  const famOK=(sa,sb)=>sa===sb||NET_SYS[sa]===NET_SYS[sb]&&!(sa==='cold'&&sb==='hot'||sa==='hot'&&sb==='cold');
+  const S0=allSegs(P3);const bad=(q1,q2,q3,q4)=>{const ns=[[q1,q2],[q2,q3],[q3,q4]];for(const [u,w] of ns){const mn=[Math.min(u[0],w[0]),Math.min(u[1],w[1]),Math.min(u[2],w[2])],mx=[Math.max(u[0],w[0]),Math.max(u[1],w[1]),Math.max(u[2],w[2])];
+    for(const z of S0){if(famOK(z.sys,Y.seg.sys))continue;if(z.mxx<mn[0]||z.mnx>mx[0]||z.mxy<mn[1]||z.mny>mx[1]||z.mxz<mn[2]||z.mnz>mx[2])continue;if(segDist(u,w,z.a,z.b)[0]<Y.seg.r+z.r+0.02)return true}}return false};
+  if(bad(p1,v3.add(p1,o),v3.add(p2,o),p2)){const o2=v3.mul(o,-1);if(!bad(p1,v3.add(p1,o2),v3.add(p2,o2),p2)){o=o2;act=act.replace('baja','sube').replace(' bajo ',' sobre ')}else{ign.add(kk);continue}}
   path.splice(Y.seg.si+1,0,p1,v3.add(p1,o),v3.add(p2,o),p2);
   steps.push({yield:Y.seg.sys,other:Y.o.sys,pi:Y.seg.pi,path:JSON.parse(JSON.stringify(path)),pt:v3.mul(v3.add(c.c1,c.c2),0.5),act})}
  return {initial,steps,remaining:detect(P3).length,manual:ign.size}}
 
 /* ---------- cálculo principal ---------- */
-function compute(P,N,opts={}){
+// tablas de la normativa ampliadas con tamaños comerciales mayores (edificios): solo se usan si la normativa se queda corta
+function extNorm(N){const X=JSON.parse(JSON.stringify(N));
+ if(X.desague&&X.desague.diam){const last=X.desague.diam[X.desague.diam.length-1];[[200,1400],[250,2500],[300,3900]].forEach(e=>{if(e[0]>last[0]&&e[1]>last[1])X.desague.diam.push(e)})}
+ if(X.agua&&X.agua.diams){const last=X.agua.diams[X.agua.diams.length-1][1];[['1½"',40.8],['2"',52.5],['2½"',63.5],['3"',76.2],['4"',101.6],['6"',152.4]].forEach(e=>{if(e[1]>last+2)X.agua.diams.push(e)})}
+ if(X.elec&&X.elec.secciones){const awg=X.elec.secciones[0][0]===2.08;const sl=X.elec.secciones[X.elec.secciones.length-1];
+  (awg?[[33.6,95],[53.5,125],[67.4,145],[85,165],[107,195],[127,215],[177,260]]:[[25,89],[35,111],[50,134],[70,171],[95,207],[120,239],[150,272]]).forEach(e=>{if(e[0]>sl[0])X.elec.secciones.push(e)});
+  const il=X.elec.interruptores[X.elec.interruptores.length-1];(awg?[70,80,100,125,150,175,200,225,250]:[80,100,125,160,200,250]).forEach(b=>{if(b>il)X.elec.interruptores.push(b)})}
+ if(X.vent&&X.vent.diams){const l=X.vent.diams[X.vent.diams.length-1];[200,250,315,400,500].forEach(d=>{if(d>l)X.vent.diams.push(d)})}
+ return X}
+function compute(P,N,opts={}){N=extNorm(N);
  const R={checks:[],fixes:[],bom:[],circuits:[],logs:[],ev:{drain:0,water:0,power:0,vent:0,fire:0},D2:{drain:[],water:[],power:[],vent:[],fire:[]},nodes:[],stats:{},norm:N.id,normName:N.nombre,totals:{}};
  const lv=P.levels.slice().sort((a,b)=>a.elev-b.elev);
  if(!lv.length){R.error='El proyecto no tiene niveles.';return R}
@@ -158,21 +187,26 @@ function compute(P,N,opts={}){
  const miss=need.filter(k=>!pts[k]);if(miss.length){R.error='Faltan puntos en el plano: '+miss.map(k=>PTS[k]).join(', ')+'.';return R}
  if(!lv.some(l=>l.rooms.length)){R.error='Dibuja al menos un ambiente.';return R}
  const lvOf=id=>P.levels.find(l=>l.id===id)||L1;
+ {const big=Math.max(...lv.map(l=>{let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;l.rooms.forEach(r=>{x0=Math.min(x0,r.x0);y0=Math.min(y0,r.y0);x1=Math.max(x1,r.x1);y1=Math.max(y1,r.y1)});return l.rooms.length?(x1-x0)*(y1-y0):0}));CELL=opts.cell||(big>1500?0.25:big>400?0.2:0.1);R.cell=CELL}
+ TCACHE.clear();
  const G={},occ={};lv.forEach(l=>{G[l.id]=makeGrid(l,P);occ[l.id]=new Uint8Array(G[l.id].N)});
  const BIT={drain:1,water:2,power:4,vent:8,fire:16};
- const sh=pts.ducto||{x:pts.tablero.x,y:pts.tablero.y};
+ const SHS=[pts.ducto||{x:pts.tablero.x,y:pts.tablero.y}].concat(pts.ducto?(P.shafts||[]).filter(s=>s&&isFinite(s.x)&&isFinite(s.y)):[]);const sh=SHS[0];
  const OFF={drain:0,cold:-0.3,hot:-0.5,power:-0.7,fire:-0.9,vent:-1.2};
- const shc=(l,k)=>G[l.id].cell(sh.x+OFF[k],sh.y);
- const shx=k=>rnd2(sh.x+OFF[k]);
+ const shc=(l,k,i=0)=>G[l.id].cell(SHS[i].x+OFF[k],SHS[i].y);
+ const shx=(k,i=0)=>rnd2(SHS[i].x+OFF[k]);
+ const nearSh=(x,y)=>{let b=0,bd=1e9;SHS.forEach((s,i)=>{const d=Math.abs(s.x-x)+Math.abs(s.y-y);if(d<bd){bd=d;b=i}});return b};
+ const split=(arr,xy)=>{const parts=SHS.map(()=>[]);arr.forEach(a=>{const [x,y]=xy(a);parts[nearSh(x,y)].push(a)});return parts};
+ const BLD=SHS.length>1||lv.length>=3;R.shafts=SHS.length;
  const BITK={drain:1,dvent:1,cold:2,hot:2,water:2,power:4,vent:8,fire:16};
  lv.forEach(l=>{G[l.id].avoid=opts.noAvoid?null:new Uint8Array(G[l.id].N)});
  const mark=(k,x,y,z0,z1)=>{for(const l of lv){if(Math.max(z0,z1)<l.elev-0.3||Math.min(z0,z1)>l.elev+l.h+0.3)continue;const g=G[l.id];if(!g.avoid)continue;const c=g.cell(x,y);for(let di=-1;di<=1;di++)for(let dj=-1;dj<=1;dj++){const cc=c+di+dj*g.nx;if(cc>=0&&cc<g.N)g.avoid[cc]|=BITK[k]}}};
- if(pts.ducto)['drain','cold','hot','power','fire','vent'].forEach(k=>mark(k,sh.x+OFF[k],sh.y,-1,99));
- const PR=Object.assign({presion:18,f_acc:1.2},P.params||{});
+ if(pts.ducto)SHS.forEach(s=>['drain','cold','hot','power','fire','vent'].forEach(k=>mark(k,s.x+OFF[k],s.y,-1,99)));
+ const PR=Object.assign({presion:18,f_acc:1.2},P.params||{});let PUMP=0;
  const ck=(sys,name,ref,val,lim,st,where)=>R.checks.push({sys,name,ref,val,lim,st,where:where||''});
  const fix=(sys,t)=>R.fixes.push({sys,t}),log=(sys,t)=>R.logs.push({sys,t});
  const bomAdd=(sys,item,spec,unit,qty)=>{if(!(qty>0))return;const e=R.bom.find(b=>b.sys===sys&&b.item===item&&b.spec===spec);if(e)e.qty+=qty;else R.bom.push({sys,item,spec,unit,qty})};
- const Zs={drain:l=>l===L1?l.elev-0.35:l.elev-0.10,cold:l=>l.elev+l.h-0.42,hot:l=>l.elev+l.h-0.50,power:l=>l.elev+l.h-0.05,vent:l=>l.elev+l.h-0.27,fire:l=>l.elev+l.h-0.13};
+ const Zs={drain:l=>l===L1?l.elev-0.35:l.elev-0.10,cold:l=>l.elev+l.h-0.42,hot:l=>l.elev+l.h-0.56,power:l=>l.elev+l.h-0.05,vent:l=>l.elev+l.h-0.27,fire:l=>l.elev+l.h-0.13};
  const P3={drain:[],dvent:[],cold:[],hot:[],power:[],vent:[],fire:[]};
  const add3=(k,l,segs,z,rad)=>segs.forEach(s=>P3[k].push({lv:l.id,p:[[s.a[0],s.a[1],z],[s.b[0],s.b[1],z]],r:rad(s.d),d:s.d}));
  const vert=(k,lid,x,y,z0,z1,r,d,nc)=>{P3[k].push({lv:lid,p:[[x,y,z0],[x,y,z1]],r,d,nc:!!nc});if(!nc)mark(k,x,y,z0,z1)};
@@ -189,7 +223,7 @@ function compute(P,N,opts={}){
   const dfx=l=>l.fixtures.filter(f=>FX[f.type]&&FX[f.type].dr);
   let upUD=0,upDm=0,totUD=0,nFx=0,Ltot=0,depth=0,dMain=0,stackD=0,elbowsL1=0,teesAll=0,elbowsAll=0;const lenBy={};const addLen=(d,L)=>{lenBy[d]=(lenBy[d]||0)+L};
   const vents=[];
-  const doLevel=(l,root,extraTerms)=>{const g=G[l.id],cost=costMap(g,'drain',occ[l.id],BIT.drain);const fx=dfx(l);
+  const doLevel=(l,root,extraTerms,fxList)=>{const g=G[l.id],cost=costMap(g,'drain',occ[l.id],BIT.drain);const fx=fxList||dfx(l);
    const terms=fx.map(f=>({c:g.cell(f.x,f.y),load:udOf(f),dmin:dminFx[f.type]||40,f})).concat(extraTerms);
    if(!terms.length)return null;
    const T=buildTree(g,'drain',root,terms,cost,st,occ[l.id],BIT.drain);const dOf=c=>Math.max(diamUD(T.load[c]),T.dm[c]);
@@ -198,7 +232,7 @@ function compute(P,N,opts={}){
    // pendiente / profundidad
    let maxDrop=0;for(const t of terms){if(t.fail||t.stack)continue;let drop=0;for(const c of chainCells(T,t.c))if(c!==T.root)drop+=CELL*pend(dOf(c))/100;if(drop>maxDrop)maxDrop=drop}
    // ventilación de trampas: distancia por el árbol hasta un punto ventilado
-   const ventCells=[];if(pts.ducto)ventCells.push(l===L1?shc(l,'drain'):root);
+   const ventCells=[];if(pts.ducto){if(l===L1)SHS.forEach((s,i)=>ventCells.push(shc(l,'drain',i)));else ventCells.push(root)}
    const adj=new Map();const link=(a,b)=>{(adj.get(a)||adj.set(a,[]).get(a)).push(b)};for(let c=0;c<g.N;c++)if(T.inTree[c]&&T.parent[c]>=0){link(c,T.parent[c]);link(T.parent[c],c)}
    const dist=new Map();const q=[];ventCells.forEach(c=>{if(T.inTree[c]){dist.set(c,0);q.push(c)}});
    while(q.length){const c=q.shift();for(const n of adj.get(c)||[])if(!dist.has(n)){dist.set(n,dist.get(c)+CELL);q.push(n)}}
@@ -213,53 +247,63 @@ function compute(P,N,opts={}){
    let dorm=0;for(let c=0;c<g.N;c++)if(T.inTree[c]&&g.room[c]>=0&&g.l.rooms[g.room[c]].type==='dormitorio')dorm++;
    if(dorm)ck('drain','Recorrido bajo dormitorios',nd.ref,`${fmt(dorm*CELL,1)} m`,'evitar','warn',l.name);
    return {T,dOf,S,maxDrop,load:terms.reduce((a,t)=>a+(t.stack?0:t.load),0),dm:Math.max(0,...terms.map(t=>t.dmin||0))}};
-  for(const l of lv.slice(1)){const r=doLevel(l,shc(l,'drain'),[]);if(!r)continue;upUD+=r.load;upDm=Math.max(upDm,r.dm);nFx+=dfx(l).length;
+  const upS=SHS.map(()=>({ud:0,dm:0}));
+  for(const l of lv.slice(1)){const fxs=dfx(l);if(!fxs.length)continue;let maxDrop=0,any=false;
+   split(fxs,f=>[f.x,f.y]).forEach((fp,i)=>{if(!fp.length)return;const r=doLevel(l,shc(l,'drain',i),[],fp);if(!r)return;any=true;upS[i].ud+=r.load;upS[i].dm=Math.max(upS[i].dm,r.dm);upUD+=r.load;upDm=Math.max(upDm,r.dm);maxDrop=Math.max(maxDrop,r.maxDrop)});
+   if(!any)continue;nFx+=fxs.length;const r={maxDrop};
    const ok=r.maxDrop<=nd.entrepiso;ck('drain','Pendiente en entrepiso',nd.ref,`caída ${fmt(r.maxDrop)} m`,`≤ ${fmt(nd.entrepiso)} m disponibles`,ok?'ok':'fail',l.name);
    if(!ok)log('drain',`${l.name}: el ramal más largo necesita ${fmt(r.maxDrop)} m de caída y el entrepiso tiene ${fmt(nd.entrepiso)} m`)}
   const salida=lvOf(pts.salida.lv);
-  const extra=(pts.ducto&&(upUD>0||true))?[{c:shc(L1,'drain'),load:upUD,dmin:upDm,stack:true}]:[];
+  const extra=pts.ducto?SHS.map((s,i)=>(i===0||upS[i].ud>0)?{c:shc(L1,'drain',i),load:upS[i].ud,dmin:upS[i].dm,stack:true}:null).filter(Boolean):[];
   const r1=doLevel(L1,G[L1.id].cell(pts.salida.x,pts.salida.y),extra);nFx+=dfx(L1).length;
   totUD=(r1?r1.load:0)+upUD;
   if(r1){depth=nd.prof_ini+r1.maxDrop;elbowsL1=r1.S.elbows;
    let mx=0;for(let c=0;c<r1.T.G.N;c++)if(r1.T.inTree[c]&&r1.T.parent[c]===r1.T.root)mx=Math.max(mx,r1.dOf(c));dMain=mx;
    ck('drain','Profundidad del colector en la salida',nd.ref,`${fmt(depth)} m`,`≤ ${fmt(nd.prof_max)} m`,depth<=nd.prof_max?'ok':'fail',`pendiente ${nd.pend_gra}–${nd.pend_peq} %`);
-   const capMain=(nd.diam.find(x=>x[0]===dMain)||[0,0])[1];
-   ck('drain','Capacidad del colector principal',nd.ref,`${fmt(totUD,0)} UD`,`Ø${dMain}: hasta ${capMain} UD`,totUD<=capMain?'ok':'fail','salida a red pública');
+   let capMain=(nd.diam.find(x=>x[0]===dMain)||[0,0])[1];let nOut=1;
+   if(totUD>capMain){const big=nd.diam[nd.diam.length-1];const d2=diamUD(totUD);if(totUD<=big[1]){fix('drain',`Colector principal aumentado de Ø${dMain} a Ø${d2} por la carga total de ${fmt(totUD,0)} UD.`);dMain=d2;capMain=(nd.diam.find(x=>x[0]===d2)||[0,0])[1]}
+    else{nOut=Math.ceil(totUD/big[1]);dMain=big[0];capMain=big[1]*nOut;fix('drain',`La carga total (${fmt(totUD,0)} UD) supera un colector Ø${big[0]}: se proyectan ${nOut} uniones domiciliarias independientes.`)}}
+   ck('drain','Capacidad del colector principal',nd.ref,`${fmt(totUD,0)} UD`,`${nOut>1?nOut+' × ':''}Ø${dMain}: hasta ${capMain} UD`,totUD<=capMain?(nOut>1||dMain!==mx?'fix':'ok'):'fail','salida a red pública');
    node('drain','pt',L1,pts.salida.x,pts.salida.y,'Salida');log('drain',`Colector Ø${dMain} a ${nd.pend_gra} %: llega a la salida a ${fmt(depth)} m de profundidad`)}
-  if(pts.ducto){stackD=Math.max(nd.d_min_wc&&upDm>=nd.d_min_wc?nd.d_min_wc:0,diamUD(upUD),upDm,50);
-   vert('drain','all',sh.x,sh.y,Zs.drain(L1),roof+0.5,stackD/2000,stackD);addLen(stackD,roof+0.5-Zs.drain(L1));
-   ck('drain','Montante con ventilación a techo',nd.ref,`Ø${stackD} mm · ${fmt(roof+0.5-Zs.drain(L1))} m`,'ventilada sobre cubierta','ok','ducto vertical');
-   if(lv.length>1)log('drain',`Montante Ø${stackD} en el ducto recibe ${fmt(upUD,0)} UD de los pisos superiores`)}
-  for(const v of vents){vert('dvent',v.l.id,v.x,v.y,Zs.drain(v.l),roof+0.5,v.d/2000,v.d);addLen(v.d,roof+0.5-Zs.drain(v.l))}
+  let nStacks=0;if(pts.ducto){SHS.forEach((s,i)=>{if(i>0&&!(upS[i].ud>0))return;nStacks++;const u=upS[i];const dS=Math.max(nd.d_min_wc&&u.dm>=nd.d_min_wc?nd.d_min_wc:0,diamUD(u.ud),u.dm,50);stackD=Math.max(stackD,dS);
+    vert('drain','all',s.x,s.y,Zs.drain(L1),roof+0.5,dS/2000,dS);addLen(dS,roof+0.5-Zs.drain(L1));
+    if(lv.length>1)log('drain',`Montante ${SHS.length>1?(i+1)+' ':''}Ø${dS} recibe ${fmt(u.ud,0)} UD de los pisos superiores`)});
+   ck('drain',nStacks>1?'Montantes con ventilación a techo':'Montante con ventilación a techo',nd.ref,`${nStacks>1?nStacks+' montantes · hasta ':''}Ø${stackD} mm · ${fmt(roof+0.5-Zs.drain(L1))} m`,'ventilada sobre cubierta','ok',nStacks>1?'un montante por grupo de baños':'ducto vertical')}
+  for(const v of vents){if(BLD&&pts.ducto){const zt=v.l.elev+1.15;vert('dvent',v.l.id,v.x,v.y,Zs.drain(v.l),zt,v.d/2000,v.d,1);const s0=SHS[nearSh(v.x,v.y)];addLen(v.d,zt-Zs.drain(v.l)+Math.abs(s0.x-v.x)+Math.abs(s0.y-v.y))}
+   else{vert('dvent',v.l.id,v.x,v.y,Zs.drain(v.l),roof+0.5,v.d/2000,v.d);addLen(v.d,roof+0.5-Zs.drain(v.l))}}
+  if(BLD&&pts.ducto&&vents.length)log('drain',`${vents.length} ventilaciones individuales se conectan a la columna de ventilación del ducto más cercano sobre el nivel de rebalse`);
   const regs=elbowsL1+1;
   Object.keys(lenBy).sort((a,b)=>a-b).forEach(d=>bomAdd('drain',`Tubería ${nd.material}`,`Ø ${d} mm`,'m',lenBy[d]));
   bomAdd('drain','Codos','varios Ø','u',elbowsAll);bomAdd('drain','Tees / yees','varios Ø','u',teesAll+nFx);
-  bomAdd('drain','Registros de limpieza','Ø 100 mm','u',regs);bomAdd('drain','Cámara de inspección','60 × 60 cm','u',1);
-  bomAdd('drain','Sombrerete de ventilación','Ø 50–100 mm','u',(pts.ducto?1:0)+vents.length);
-  R.ev.drain=st.n;R.totals.drain={len:Object.values(lenBy).reduce((a,b)=>a+b,0),depth,dMain,stackD,ud:totUD,vents:vents.length,fx:nFx};
+  bomAdd('drain','Registros de limpieza','Ø 100 mm','u',regs);bomAdd('drain','Cámara de inspección','60 × 60 cm','u',1+(R.nOut||0));
+  bomAdd('drain','Sombrerete de ventilación','Ø 50–100 mm','u',nStacks+vents.length);
+  R.ev.drain=st.n;R.totals.drain={len:Object.values(lenBy).reduce((a,b)=>a+b,0),depth,dMain,stackD,stacks:nStacks,ud:totUD,vents:vents.length,fx:nFx};
   R.stats.drain=[`${fmt(R.totals.drain.len,1)} m ${nd.material} · colector Ø${dMain||'—'}`,`${nFx} aparatos · ${fmt(totUD,0)} UD · salida a ${fmt(depth)} m`]}
 
  /* ===== Agente 4 · Ventilación (antes que electricidad: crea extractores) ===== */
  const extractors=[];
- {const nv=N.vent,st={n:0};let Ltot=0;const lenBy={};let nNeed=0;
+ {const nv=N.vent,st={n:0};let Ltot=0;const lenBy={};let nNeed=0;const colV={};
   for(const l of lv){const g=G[l.id];for(const r of l.rooms){if(!(r.type==='bano'||r.type==='cocina')||r.ventana)continue;nNeed++;
    let ex=l.fixtures.find(f=>f.type==='extractor'&&roomOfPt(l,f.x,f.y)===r);
    if(!ex){ex={type:'extractor',x:rnd2((r.x0+r.x1)/2),y:rnd2((r.y0+r.y1)/2),auto:true};fix('vent',`Se agregó un extractor en ${r.name} (${l.name}): el recinto no tiene ventilación natural.`)}
    const area=(r.x1-r.x0)*(r.y1-r.y0),vol=area*l.h,ren=r.type==='bano'?nv.ren_bano:nv.ren_cocina,qf=r.type==='bano'?nv.q_bano_ls:nv.q_cocina_ls;
    const q=qf>0?qf:ren*vol/3.6;let dd=nv.diams[nv.diams.length-1];for(const d of nv.diams){if(q/1000/(Math.PI*(d/1000)**2/4)<=nv.v_max){dd=d;break}}
    const v=q/1000/(Math.PI*(dd/1000)**2/4);let horiz=0,vertL;
-   if(l===TOP||!pts.ducto){vertL=roof+0.4-Zs.vent(l);vert('vent',l.id,ex.x,ex.y,Zs.vent(l),roof+0.4,dd/2000,dd)}
-   else{const cost=costMap(g,'vent',occ[l.id],BIT.vent),tg=new Uint8Array(g.N);tg[shc(l,'vent')]=1;
-    const T=buildTree(g,'vent',shc(l,'vent'),[{c:g.cell(ex.x,ex.y),load:1}],cost,st,occ[l.id],BIT.vent);const S=treeSegs(T,()=>dd);
+   let si=-1;if(l===TOP||!pts.ducto){vertL=roof+0.4-Zs.vent(l);vert('vent',l.id,ex.x,ex.y,Zs.vent(l),roof+0.4,dd/2000,dd)}
+   else{si=nearSh(ex.x,ex.y);const cost=costMap(g,'vent',occ[l.id],BIT.vent);
+    const T=buildTree(g,'vent',shc(l,'vent',si),[{c:g.cell(ex.x,ex.y),load:1}],cost,st,occ[l.id],BIT.vent);const S=treeSegs(T,()=>dd);
     horiz=S.len;d2('vent','vent',l,S.segs);routesD2('vent','vent',l,T);add3('vent',l,S.segs,Zs.vent(l),d=>d/2000);
-    vertL=roof+0.4-Zs.vent(l);vert('vent',l.id,shx('vent'),sh.y,Zs.vent(l),roof+0.4,dd/2000,dd)}
+    vertL=0;const cs=colV[si]||(colV[si]={q:0,z0:Infinity,n:0});cs.q+=q;cs.n++;cs.z0=Math.min(cs.z0,Zs.vent(l))}
    vert('vent',l.id,ex.x,ex.y,l.elev+l.h-0.05,Zs.vent(l),dd/2000,dd,1);
-   const L=horiz+vertL;Ltot+=L;lenBy[dd]=(lenBy[dd]||0)+L;const nm=`${r.name} · ${l.name}`;
+   const L=horiz+vertL+(si>=0?0.5:0);Ltot+=L;lenBy[dd]=(lenBy[dd]||0)+L;const nm=`${r.name} · ${l.name}`;
    ck('vent','Caudal de extracción',nv.ref,`${fmt(q,1)} L/s`,qf>0?`${qf} L/s`:`${ren} ren/h × ${fmt(vol,1)} m³`,'ok',nm);
    ck('vent','Velocidad en ducto',nv.ref,`${fmt(v,1)} m/s (Ø${dd})`,`≤ ${nv.v_max} m/s`,v<=nv.v_max?'ok':'fail',nm);
-   ck('vent','Longitud de ducto',nv.ref,`${fmt(L,1)} m`,`≤ ${nv.l_max} m`,L<=nv.l_max?'ok':'warn',nm);
+   ck('vent',si>=0?'Longitud de ramal al shaft':'Longitud de ducto',nv.ref,`${fmt(L,1)} m`,`≤ ${nv.l_max} m`,L<=nv.l_max?'ok':'warn',nm);
    extractors.push({l,x:ex.x,y:ex.y,room:r.name,q});node('vent','fx',l,ex.x,ex.y,'EX');
    log('vent',`${nm}: extractor de ${fmt(q,0)} L/s, ducto Ø${dd} de ${fmt(L,1)} m`)}}
+  Object.entries(colV).forEach(([si,cs])=>{const q=cs.q*0.8;let dd=nv.diams[nv.diams.length-1];for(const d of nv.diams){if(q/1000/(Math.PI*(d/1000)**2/4)<=nv.v_max){dd=d;break}}const L=roof+0.4-cs.z0;
+   vert('vent','all',shx('vent',+si),SHS[si].y,cs.z0,roof+0.4,dd/2000,dd);lenBy[dd]=(lenBy[dd]||0)+L;Ltot+=L;
+   if(cs.n>1)ck('vent','Shaft colectivo de extracción',nv.ref,`Ø${dd} · ${fmt(cs.q,0)} L/s`,`v ≤ ${nv.v_max} m/s`,'ok',`${cs.n} extractores${SHS.length>1?' · ducto '+(+si+1):''}`)});
   if(!nNeed)ck('vent','Recintos sin ventilación natural',nv.ref,'0','—','ok','todos los baños y cocinas tienen ventana');
   Object.keys(lenBy).forEach(d=>bomAdd('vent','Ducto PVC / aluminio flexible',`Ø ${d} mm`,'m',lenBy[d]));
   extractors.forEach(e=>bomAdd('vent','Extractor de aire',`${Math.ceil(e.q/5)*5} L/s`,'u',1));bomAdd('vent','Sombrerete / rejilla exterior','—','u',extractors.length);
@@ -282,43 +326,58 @@ function compute(P,N,opts={}){
    d2('water',kind,l,S.segs);routesD2('water',kind,l,T);add3(kind,l,S.segs,Zs[kind](l),d=>d/2000+0.004);
    const hfTo=c=>{let s=0;for(const x of chainCells(T,c))if(x!==T.root)s+=hf(CELL,Q(T.load[x]),dOf(x));return s};
    const lenTo=c=>(chainCells(T,c).length-1)*CELL;return {T,dOf,hfTo,lenTo,S}};
-  // agua fría
-  const nets={};let shaftLoad=0;
-  for(const l of lv){if(l===mLv)continue;const fx=coldFx(l);if(!fx.length)continue;const g=G[l.id];
-   const terms=fx.map(f=>({c:g.cell(f.x,f.y),load:f.type==='terma'?0:ugOf(f),f}));nets[l.id]=runNet('cold',l,shc(l,'cold'),terms,lenC);nets[l.id].load=terms.reduce((a,t)=>a+t.load,0);shaftLoad+=nets[l.id].load}
-  {const g=G[mLv.id],fx=coldFx(mLv),terms=fx.map(f=>({c:g.cell(f.x,f.y),load:f.type==='terma'?0:ugOf(f),f}));if(shaftLoad>0)terms.push({c:shc(mLv,'cold'),load:shaftLoad,shaft:true});
-   nets[mLv.id]=runNet('cold',mLv,g.cell(pts.medidor.x,pts.medidor.y),terms,lenC);
-   vert('cold',mLv.id,pts.medidor.x,pts.medidor.y,mLv.elev+0.3,Zs.cold(mLv),0.012,20);lenC[nets[mLv.id].dOf(nets[mLv.id].T.root)]=(lenC[nets[mLv.id].dOf(nets[mLv.id].T.root)]||0)+Zs.cold(mLv)-mLv.elev-0.3;
+  // agua fría: cada nivel se divide por ducto; un montante por ducto
+  const nets={};const sLoad=SHS.map(()=>0);let shaftLoad=0;
+  for(const l of lv){if(l===mLv)continue;const fx=coldFx(l);if(!fx.length)continue;const g=G[l.id];nets[l.id]=[];
+   split(fx,f=>[f.x,f.y]).forEach((fp,i)=>{if(!fp.length)return;const terms=fp.map(f=>({c:g.cell(f.x,f.y),load:f.type==='terma'?0:ugOf(f),f}));const n=runNet('cold',l,shc(l,'cold',i),terms,lenC);n.load=terms.reduce((a,t)=>a+t.load,0);n.si=i;nets[l.id].push(n);sLoad[i]+=n.load;shaftLoad+=n.load})}
+  {const g=G[mLv.id],fx=coldFx(mLv),terms=fx.map(f=>({c:g.cell(f.x,f.y),load:f.type==='terma'?0:ugOf(f),f}));SHS.forEach((s,i)=>{if(sLoad[i]>0)terms.push({c:shc(mLv,'cold',i),load:sLoad[i],shaft:true})});
+   const n=runNet('cold',mLv,g.cell(pts.medidor.x,pts.medidor.y),terms,lenC);n.si=-1;nets[mLv.id]=[n];
+   vert('cold',mLv.id,pts.medidor.x,pts.medidor.y,mLv.elev+0.3,Zs.cold(mLv),0.012,20);lenC[n.dOf(n.T.root)]=(lenC[n.dOf(n.T.root)]||0)+Zs.cold(mLv)-mLv.elev-0.3;
    node('water','pt',mLv,pts.medidor.x,pts.medidor.y,'Medidor')}
-  let riserD=0;if(shaftLoad>0){riserD=dsel(Q(shaftLoad));const up=lv.filter(l=>l!==mLv&&nets[l.id]);const zt=Math.max(...up.map(l=>Zs.cold(l)));
-   vert('cold','all',shx('cold'),sh.y,Zs.cold(mLv),zt,riserD/2000+0.004,riserD);lenC[riserD]=(lenC[riserD]||0)+zt-Zs.cold(mLv)}
+  const M0=nets[mLv.id][0];const riserDs=SHS.map(()=>0);let riserD=0;
+  SHS.forEach((s,i)=>{if(!(sLoad[i]>0))return;const dR=dsel(Q(sLoad[i]));riserDs[i]=dR;riserD=Math.max(riserD,dR);const zz=lv.filter(l=>l!==mLv&&(nets[l.id]||[]).some(n=>n.si===i)).map(l=>Zs.cold(l)).concat([Zs.cold(mLv)]);const z0=Math.min(...zz),z1=Math.max(...zz);
+   vert('cold','all',shx('cold',i),s.y,z0,z1,dR/2000+0.004,dR);lenC[dR]=(lenC[dR]||0)+z1-z0});
   // presiones
-  let pmin=Infinity,pminAt='',pstat=0;const zm=mLv.elev+0.3;
-  for(const l of lv){const n=nets[l.id];if(!n)continue;for(const t of n.T.terms){if(!t.f)continue;let h=n.hfTo(t.c);
-    if(l!==mLv){h+=hf(Math.abs(l.elev-mLv.elev),Q(shaftLoad),riserD)+nets[mLv.id].hfTo(shc(mLv,'cold'))}
+  let pmin=Infinity,pminAt='',pstat=0,pstatLv=null;const zm=mLv.elev+0.3;const pAt=[];
+  for(const l of lv){for(const n of nets[l.id]||[]){for(const t of n.T.terms){if(!t.f)continue;let h=n.hfTo(t.c);
+    if(l!==mLv){h+=hf(Math.abs(l.elev-mLv.elev),Q(sLoad[n.si]),riserDs[n.si])+M0.hfTo(shc(mLv,'cold',n.si))}
     const zf=l.elev+(FX[t.f.type].zs||1),p=PR.presion-(zf-zm)-PR.f_acc*h;if(p<pmin){pmin=p;pminAt=`${FX[t.f.type].n} · ${(roomOfPt(l,t.f.x,t.f.y)||{}).name||''} · ${l.name}`}
-    pstat=Math.max(pstat,PR.presion-(l.elev+(FX[t.f.type].zs||1)-zm));
+    const ps=PR.presion-(zf-zm);if(ps>pstat){pstat=ps;pstatLv=l}pAt.push({l,ps});
     vert('cold',l.id,t.f.x,t.f.y,Zs.cold(l),l.elev+(FX[t.f.type].zs||1),0.0075+0.004,15,1);lenC[na.diams[0][1]]=(lenC[na.diams[0][1]]||0)+Zs.cold(l)-l.elev-(FX[t.f.type].zs||1);
-    node('water','fx',l,t.f.x,t.f.y,FX[t.f.type].ab);nPts++}}
-  if(isFinite(pmin)){ck('water','Presión mínima en el aparato más desfavorable',na.ref,`${fmt(pmin,1)} m.c.a.`,`≥ ${na.p_min} m.c.a.`,pmin>=na.p_min?'ok':'fail',pminAt);
-   ck('water','Presión estática máxima',na.ref,`${fmt(pstat,1)} m.c.a.`,`≤ ${na.p_max} m.c.a.`,pstat<=na.p_max?'ok':'fail',`red pública ${PR.presion} m.c.a.`);
-   if(pmin<na.p_min)log('water',`Presión insuficiente en ${pminAt}: ${fmt(pmin,1)} m.c.a. Evaluar equipo de presión o mayor diámetro`)}
+    node('water','fx',l,t.f.x,t.f.y,FX[t.f.type].ab);nPts++}}}
+  let pump=0;
+  if(isFinite(pmin)){
+   if(pmin<na.p_min&&BLD&&PR.bomba!==false){pump=Math.ceil(na.p_min-pmin+3);const qd=Q(shaftLoad+M0.T.terms.filter(t=>t.f).reduce((a,t)=>a+t.load,0));
+    fix('water',`Se agregó un equipo de presión (hidropack) de ${pump} m.c.a. sobre la presión de red: con ${PR.presion} m.c.a. el aparato más alto quedaba con ${fmt(pmin,1)} m.c.a.`);
+    ck('water','Equipo de presión (bombeo)',na.ref,`${pump} m.c.a. · ${fmt(qd,2)} L/s`,`necesario para ≥ ${na.p_min} m.c.a. arriba`,'fix',pminAt);
+    bomAdd('water','Equipo hidropack (2 bombas + estanque)',`${fmt(qd,2)} L/s · ${pump+PR.presion} m.c.a.`,'u',1);
+    log('water',`Equipo de presión: ${fmt(qd,2)} L/s a ${pump} m.c.a. adicionales para abastecer los pisos altos`)}
+   PUMP=pump;const pm=pmin+pump,psMax=pstat+pump;
+   ck('water','Presión mínima en el aparato más desfavorable',na.ref,`${fmt(pm,1)} m.c.a.${pump?' (con bombeo)':''}`,`≥ ${na.p_min} m.c.a.`,pm>=na.p_min?'ok':'fail',pminAt);
+   const hiLv=[...new Set(pAt.filter(o=>o.ps+pump>na.p_max).map(o=>o.l))];
+   if(psMax>na.p_max&&BLD&&hiLv.length){fix('water',`Se agregaron válvulas reductoras de presión en ${hiLv.length} nivel${hiLv.length>1?'es':''} (${hiLv.slice(0,4).map(l=>l.name).join(', ')}${hiLv.length>4?'…':''}): la presión estática superaba ${na.p_max} m.c.a.`);
+    ck('water','Presión estática máxima',na.ref,`${fmt(psMax,1)} m.c.a. → VRP`,`≤ ${na.p_max} m.c.a.`,'fix',`${hiLv.length} niveles con válvula reductora`);bomAdd('water','Válvula reductora de presión','¾" – 1"','u',hiLv.length*Math.max(1,SHS.length))}
+   else ck('water','Presión estática máxima',na.ref,`${fmt(psMax,1)} m.c.a.`,`≤ ${na.p_max} m.c.a.`,psMax<=na.p_max?'ok':'fail',pump?`red ${PR.presion} + bombeo ${pump} m.c.a.`:`red pública ${PR.presion} m.c.a.`);
+   if(pm<na.p_min)log('water',`Presión insuficiente en ${pminAt}: ${fmt(pm,1)} m.c.a. Evaluar equipo de presión o mayor diámetro`);pmin=pm}
   // agua caliente
   const hotAll=lv.flatMap(l=>hotFx(l).map(f=>({l,f})));let hotMax=0,hotAt='';
   if(hotAll.length&&!heater)ck('water','Equipo de agua caliente',na.ref,'no hay terma','requerido','fail','agrega una terma o calentador en el plano');
-  if(hotAll.length&&heater){const hL=heater.l;let hShaft=0;const hn={};
-   for(const l of lv){if(l===hL)continue;const fx=hotFx(l);if(!fx.length)continue;const g=G[l.id];const terms=fx.map(f=>({c:g.cell(f.x+0.1,f.y),load:ugOf(f)*0.75,f}));
-    hn[l.id]=runNet('hot',l,shc(l,'hot'),terms,lenH);hShaft+=terms.reduce((a,t)=>a+t.load,0)}
-   {const g=G[hL.id],terms=hotFx(hL).map(f=>({c:g.cell(f.x+0.1,f.y),load:ugOf(f)*0.75,f}));if(hShaft>0)terms.push({c:shc(hL,'hot'),load:hShaft,shaft:true});
-    hn[hL.id]=runNet('hot',hL,g.cell(heater.f.x+0.1,heater.f.y),terms,lenH);vert('hot',hL.id,rnd2(heater.f.x+0.1),heater.f.y,hL.elev+1.95,Zs.hot(hL),0.012,20)}
-   let rL=0;if(hShaft>0){const others=lv.filter(l=>l!==hL&&hn[l.id]);const zs=others.map(l=>Zs.hot(l)).concat([Zs.hot(hL)]);const z0=Math.min(...zs),z1=Math.max(...zs);rL=z1-z0;const dd=dsel(Q(hShaft));
+  if(hotAll.length&&heater){const hL=heater.l;let hShaft=0;const hn={};const heaters=lv.flatMap(l=>l.fixtures.filter(f=>f.type==='terma').map(f=>({l,f})));const local=l=>heaters.filter(h=>h.l===l);
+   const hT=(g,f)=>({c:g.cell(f.x+0.1,f.y),load:ugOf(f)*0.75,f});
+   for(const l of lv){if(local(l).length)continue;const fx=hotFx(l);if(!fx.length)continue;const g=G[l.id];const terms=fx.map(f=>hT(g,f));const n=runNet('hot',l,shc(l,'hot'),terms,lenH);n.via=true;hn[l.id]=[n];hShaft+=terms.reduce((a,t)=>a+t.load,0)}
+   let mainN=null;
+   for(const l of lv){const hs=local(l);if(!hs.length)continue;const g=G[l.id];const parts=hs.map(()=>[]);
+    hotFx(l).forEach(f=>{let b=0,bd=1e9;hs.forEach((h,i)=>{const d=Math.abs(h.f.x-f.x)+Math.abs(h.f.y-f.y);if(d<bd){bd=d;b=i}});parts[b].push(f)});hn[l.id]=[];
+    hs.forEach((h,i)=>{const terms=parts[i].map(f=>hT(g,f));const isMain=h.f===heater.f;if(isMain&&hShaft>0)terms.push({c:shc(l,'hot'),load:hShaft,shaft:true});if(!terms.length)return;
+     const n=runNet('hot',l,g.cell(h.f.x+0.1,h.f.y),terms,lenH);if(isMain)mainN=n;hn[l.id].push(n);vert("hot",l.id,rnd2(h.f.x+0.1),h.f.y,l.elev+Math.min(1.95,l.h-0.7),Zs.hot(l),0.012,20);node('water','fx',l,h.f.x,h.f.y,'TE')})}
+   let rL=0;if(hShaft>0){const others=lv.filter(l=>(hn[l.id]||[]).some(n=>n.via));const zs=others.map(l=>Zs.hot(l)).concat([Zs.hot(hL)]);const z0=Math.min(...zs),z1=Math.max(...zs);rL=z1-z0;const dd=dsel(Q(hShaft));
     vert('hot','all',shx('hot'),sh.y,z0,z1,dd/2000+0.004,dd);lenH[dd]=(lenH[dd]||0)+rL}
-   for(const l of lv){const n=hn[l.id];if(!n)continue;for(const t of n.T.terms){if(!t.f)continue;let L=n.lenTo(t.c)+(l!==hL?Math.abs(l.elev-hL.elev)+hn[hL.id].lenTo(shc(hL,'hot')):0);
+   for(const l of lv){for(const n of hn[l.id]||[]){for(const t of n.T.terms){if(!t.f)continue;let L=n.lenTo(t.c)+(n.via&&mainN?Math.abs(l.elev-hL.elev)+mainN.lenTo(shc(hL,'hot')):0);
      if(L>hotMax){hotMax=L;hotAt=`${FX[t.f.type].n} · ${(roomOfPt(l,t.f.x,t.f.y)||{}).name||''} · ${l.name}`}
-     vert('hot',l.id,rnd2(t.f.x+0.1),t.f.y,Zs.hot(l),l.elev+(FX[t.f.type].zs||1),0.0075+0.004,15,1);lenH[na.diams[0][1]]=(lenH[na.diams[0][1]]||0)+Zs.hot(l)-l.elev-(FX[t.f.type].zs||1)}}
+     vert('hot',l.id,rnd2(t.f.x+0.1),t.f.y,Zs.hot(l),l.elev+(FX[t.f.type].zs||1),0.0075+0.004,15,1);lenH[na.diams[0][1]]=(lenH[na.diams[0][1]]||0)+Zs.hot(l)-l.elev-(FX[t.f.type].zs||1)}}}
    const vol=hotMax*Math.PI*(na.diams[0][1]/1000)**2/4*1000,wait=vol/0.1;
    ck('water','Recorrido de agua caliente',na.ref,`${fmt(hotMax,1)} m (espera ≈ ${fmt(wait,0)} s)`,`≤ ${na.l_max_caliente} m sin recirculación`,hotMax<=na.l_max_caliente?'ok':'warn',hotAt);
-   node('water','fx',hL,heater.f.x,heater.f.y,'TE');log('water',`Agua caliente desde la terma de ${hL.name}: grifo más lejano a ${fmt(hotMax,1)} m`)}
+   log('water',heaters.length>1?`Agua caliente desde ${heaters.length} termas (una por unidad): grifo más lejano a ${fmt(hotMax,1)} m`:`Agua caliente desde la terma de ${hL.name}: grifo más lejano a ${fmt(hotMax,1)} m`)}
   ck('water','Velocidad máxima en tuberías',na.ref,`${fmt(vmax,2)} m/s`,`≤ ${na.v_max} m/s`,vmax<=na.v_max?'ok':'fail','tramo más cargado');
   Lc=Object.values(lenC).reduce((a,b)=>a+b,0);Lh=Object.values(lenH).reduce((a,b)=>a+b,0);
   Object.keys(lenC).sort((a,b)=>a-b).forEach(d=>bomAdd('water',`Tubería agua fría ${na.material}`,`${nom(+d)} (Øi ${d} mm)`,'m',lenC[d]));
@@ -326,9 +385,9 @@ function compute(P,N,opts={}){
   bomAdd('water','Aislamiento térmico agua caliente','espesor 9 mm','m',Lh);bomAdd('water','Codos','varios Ø','u',elb);bomAdd('water','Tees','varios Ø','u',tee);
   const wetRooms=new Set();lv.forEach(l=>l.fixtures.forEach(f=>{if(FX[f.type]&&FX[f.type].cold){const r=roomOfPt(l,f.x,f.y);if(r)wetRooms.add(l.id+r.id)}}));
   bomAdd('water','Llaves de paso','½" – ¾"','u',wetRooms.size+1);
-  R.ev.water=st.n;R.totals.water={lc:Lc,lh:Lh,pmin,hot:hotMax,pts:nPts};
+  R.ev.water=st.n;R.totals.water={lc:Lc,lh:Lh,pmin,hot:hotMax,pts:nPts,pump};
   R.stats.water=[`${fmt(Lc+Lh,1)} m ${na.material} · fría y caliente`,`${nPts} puntos · presión mín. ${isFinite(pmin)?fmt(pmin,1):'—'} m.c.a.`];
-  log('water',`Red de agua fría desde el medidor con presión de red ${PR.presion} m.c.a.`)}
+  log('water',`Red de agua fría desde el medidor con presión de red ${PR.presion} m.c.a.${SHS.length>1?` · ${SHS.length} montantes`:''}`)}
 
  /* ===== Agente 3 · Electricidad ===== */
  {const ne=N.elec,st={n:0};const tLv=lvOf(pts.tablero.lv),g0=G[tLv.id],panel=g0.cell(pts.tablero.x,pts.tablero.y);
@@ -355,7 +414,8 @@ function compute(P,N,opts={}){
   extractors.forEach(e=>add(e.l,'luz',e.x-0.25,e.y,ne.va.extractor,{name:e.room},'Extractor'));
   // circuitos
   const circs=[];const chunk=(arr,n)=>{const o=[];for(let i=0;i<arr.length;i+=n)o.push(arr.slice(i,i+n));return o};
-  for(const l of lv){const its=items.filter(x=>x.l===l);
+  const rKey=new Map();const keyOf=x=>{let k=rKey.get(x.room);if(k===undefined){const r=x.room,cx=r.x0!=null?(r.x0+r.x1)/2:x.x,cy=r.y0!=null?(r.y0+r.y1)/2:x.y,si=BLD?nearSh(cx,cy):0,band=Math.floor(cy/7);k=si*1e8+band*1e5+(band%2?1e4-cx*10:cx*10);rKey.set(x.room,k)}return k};
+  for(const l of lv){const its=items.filter(x=>x.l===l).sort((a,b)=>keyOf(a)-keyOf(b));
    chunk(its.filter(x=>x.kind==='luz'),Math.max(1,ne.max_luz)).forEach(a=>circs.push({l,type:'luz',items:a,desc:`Alumbrado ${l.name}`}));
    const tom=its.filter(x=>x.kind==='toma');const kit=ne.ded.tomas_cocina?tom.filter(x=>x.room.type==='cocina'):[],bat=ne.ded.tomas_bano?tom.filter(x=>x.room.type==='bano'):[];
    const gen=tom.filter(x=>!kit.includes(x)&&!bat.includes(x));
@@ -363,20 +423,25 @@ function compute(P,N,opts={}){
    if(kit.length)chunk(kit,Math.max(1,Math.ceil(kit.length/2))).forEach(a=>circs.push({l,type:'toma',items:a,desc:`Tomas de cocina ${l.name}`,min:20}));
    if(bat.length)circs.push({l,type:'toma',items:bat,desc:`Tomas de baño ${l.name}`,min:20});
    its.filter(x=>x.kind==='ded').forEach(x=>circs.push({l,type:'ded',items:[x],desc:`${x.label} (dedicado)`,ded:x.ded}))}
-  // montante tablero → ducto
-  let upLen=0,upPath=null;const cost0=costMap(g0,'power',occ[tLv.id],BIT.power);
-  if(pts.ducto&&circs.some(c=>c.l!==tLv)){const tg=new Uint8Array(g0.N);tg[shc(tLv,'power')]=1;upPath=route(g0,cost0,'power',panel,tg,st);if(upPath){upLen=(upPath.length-1)*CELL;
+  // montante tablero → ducto(s). En edificios: un subtablero por ducto y piso, alimentado por el montante
+  const cost0=costMap(g0,'power',occ[tLv.id],BIT.power);const up=SHS.map(()=>({len:0,ok:false}));
+  const ctr=c=>[c.items.reduce((a,x)=>a+x.x,0)/c.items.length,c.items.reduce((a,x)=>a+x.y,0)/c.items.length];
+  circs.forEach(c=>{const [cx,cy]=ctr(c);c.si=nearSh(cx,cy);c.sub=BLD?!(c.l===tLv&&Math.hypot(cx-pts.tablero.x,cy-pts.tablero.y)<=Math.hypot(cx-SHS[c.si].x,cy-SHS[c.si].y)+3):c.l!==tLv});
+  if(pts.ducto)SHS.forEach((s,i)=>{if(!circs.some(c=>c.sub&&c.si===i))return;const tg=new Uint8Array(g0.N);tg[shc(tLv,'power',i)]=1;const upPath=route(g0,cost0,'power',panel,tg,st);if(!upPath)return;up[i].ok=true;up[i].len=(upPath.length-1)*CELL;
    for(let k=0;k<upPath.length-1;k++)occ[tLv.id][upPath[k]]|=BIT.power;
    const segsUp=[];let a=g0.xy(upPath[0]);let dir=null;for(let k=1;k<upPath.length;k++){const dd=upPath[k]-upPath[k-1];if(dir!==null&&dd!==dir){const b=g0.xy(upPath[k-1]);segsUp.push({a,b,d:0,len:Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])});a=b}dir=dd}
-   const b=g0.xy(upPath[upPath.length-1]);segsUp.push({a,b,d:0,len:0});add3('power',tLv,segsUp,Zs.power(tLv),()=>0.016);d2('power','power',tLv,segsUp,'montante');
-   const others=lv.filter(l=>l!==tLv&&circs.some(c=>c.l===l));const zt=Math.max(...others.map(l=>Zs.power(l)));vert('power','all',shx('power'),sh.y,Zs.power(tLv),zt,0.016,0)}}
+   const b=g0.xy(upPath[upPath.length-1]);segsUp.push({a,b,d:0,len:0});add3('power',tLv,segsUp,Zs.power(tLv),()=>0.016);d2('power','power',tLv,segsUp,SHS.length>1?'alimentador '+(i+1):'montante');
+   const others=lv.filter(l=>circs.some(c=>c.sub&&c.si===i&&c.l===l)).map(l=>Zs.power(l)).concat([Zs.power(tLv)]);vert('power','all',shx('power',i),s.y,Math.min(...others),Math.max(...others),0.016,0)});
+  const upLen=up[0].len;
   vert('power',tLv.id,pts.tablero.x,pts.tablero.y,tLv.elev+1.5,Zs.power(tLv),0.02,0,1);node('power','pt',tLv,pts.tablero.x,pts.tablero.y,'Tablero');
   const secs=ne.secciones,amp=s=>(secs.find(x=>x[0]===s)||[0,0])[1];let cable={},conduit=0,elb=0,breakers={},totVA=0,worst=0;
-  circs.forEach((c,ci)=>{const l=c.l,g=G[l.id],root=l===tLv?panel:shc(l,'power'),cost=costMap(g,'power',occ[l.id],BIT.power);
+  const subs=new Map();
+  circs.forEach((c,ci)=>{const l=c.l,g=G[l.id],root=c.sub?shc(l,'power',c.si):panel,cost=costMap(g,'power',occ[l.id],BIT.power);
    const terms=c.items.map(x=>({c:g.cell(x.x,x.y),load:x.va,it:x}));const T=buildTree(g,'power',root,terms,cost,st,occ[l.id],BIT.power);const S=treeSegs(T,()=>0);elb+=S.elbows;
    const V=(c.type==='ded'&&(c.ded==='cocina'||c.ded==='terma'))?(ne.tension_ded||ne.tension):ne.tension;
    const va=c.items.reduce((a,x)=>a+x.va,0),I=va/V;totVA+=va;
-   const extra=l===tLv?0:upLen+Math.abs(l.elev-tLv.elev);let far=0,drops=0;
+   const extra=!c.sub?0:BLD?0:up[c.si].len+Math.abs(l.elev-tLv.elev);let far=0,drops=0;
+   if(BLD&&c.sub){const k=l.id+'|'+c.si;const sb=subs.get(k)||{l,si:c.si,va:0,n:0};sb.va+=va;sb.n++;subs.set(k,sb)}
    for(const t of terms){const dz=t.it.kind==='luz'?0.05:(t.it.kind==='ded'?l.h-1.1:l.h-0.3);drops+=dz;const L=(chainCells(T,t.c).length-1)*CELL+extra+dz+1.5;if(L>far)far=L;
     if(t.it.kind!=='luz')vert('power',l.id,t.it.x,t.it.y,Zs.power(l),l.elev+(t.it.kind==='ded'?1.1:0.3),0.012,0,1);node('power',t.it.kind,l,t.it.x,t.it.y,t.it.label)}
    let smin=c.type==='luz'?ne.sec_min_luz:ne.sec_min_tomas;let si=secs.findIndex(x=>x[0]>=smin);if(si<0)si=secs.length-1;
@@ -390,6 +455,12 @@ function compute(P,N,opts={}){
    if(c.type!=='ded')ck('power','Puntos por circuito',ne.ref,`${c.items.length}`,`≤ ${c.type==='luz'?ne.max_luz:ne.max_tomas}`,'ok',`${id} · ${c.desc}`);
    const run=S.len+extra+drops+1.5;cable[S2]=(cable[S2]||0)+run*3;conduit+=run;breakers[br]=(breakers[br]||0)+1;
    S.segs.forEach(s=>{s.d=S2});d2('power','power',l,S.segs,id);routesD2('power','power',l,T);add3('power',l,S.segs,Zs.power(l),()=>0.012)});
+  // alimentadores a subtableros (edificios)
+  let fWorst=0,fLen=0;if(subs.size){const fc={};subs.forEach(sb=>{const L=up[sb.si].len+Math.abs(sb.l.elev-tLv.elev)+3,I=sb.va*0.6/ne.tension;let si=secs.findIndex(x=>x[1]>=I*1.25);if(si<0)si=secs.length-1;
+    const vdOf=q=>2*L*I*0.0175/q/ne.tension*100;while(si<secs.length-1&&vdOf(secs[si][0])>ne.caida_max)si++;const np=Math.max(1,Math.ceil(vdOf(secs[si][0])/ne.caida_max-1e-9));const vd=vdOf(secs[si][0])/np;fWorst=Math.max(fWorst,vd);fLen+=L;fc[secs[si][0]]=(fc[secs[si][0]]||0)+L*3*np});
+   ck('power','Caída de tensión en alimentadores',ne.ref,`${fmt(fWorst,2)} %`,`≤ ${ne.caida_max} %`,fWorst<=ne.caida_max?'ok':'fail',`${subs.size} subtableros (uno por ducto y piso)`);
+   Object.keys(fc).sort((a,b)=>a-b).forEach(q=>bomAdd('power',`Alimentador ${ne.cable}`,`${q} mm²`,'m',fc[q]));bomAdd('power','Subtablero de distribución','por piso / ducto','u',subs.size);
+   log('power',`${subs.size} subtableros alimentados desde el tablero general por ${SHS.length>1?SHS.length+' montantes':'el montante'} (${fmt(fLen,0)} m de alimentadores)`)}
   // demanda
   let rem=totVA,prevT=0,dem=0;for(const [lim,f] of ne.demanda){const part=Math.min(rem,lim-prevT);if(part<=0)break;dem+=part*f;rem-=part;prevT=lim}
   const Imain=dem/ne.tension;const brMain=ne.interruptores.find(b=>b>=Imain*1.25)||ne.interruptores[ne.interruptores.length-1];let sm=secs.find(x=>x[1]>=brMain)||secs[secs.length-1];
@@ -404,7 +475,7 @@ function compute(P,N,opts={}){
   Object.keys(breakers).sort((a,b)=>a-b).forEach(b=>bomAdd('power','Interruptor termomagnético 1P+N',`${b} A`,'u',breakers[b]));
   if(ne.diferencial)bomAdd('power','Interruptor diferencial','2 × 40 A · 30 mA','u',Math.ceil(circs.length/4));
   bomAdd('power','Interruptor general',`${brMain} A`,'u',1);bomAdd('power','Tablero de distribución',`${circs.length+2} polos`,'u',1);
-  R.ev.power=st.n;R.totals.power={circ:circs.length,va:totVA,dem,brMain,worst,tomas:items.filter(x=>x.kind==='toma').length,luz:items.filter(x=>x.kind==='luz').length,cable:Object.values(cable).reduce((a,b)=>a+b,0)};
+  R.ev.power=st.n;R.totals.power={subs:subs.size,circ:circs.length,va:totVA,dem,brMain,worst,tomas:items.filter(x=>x.kind==='toma').length,luz:items.filter(x=>x.kind==='luz').length,cable:Object.values(cable).reduce((a,b)=>a+b,0)};
   R.stats.power=[`${circs.length} circuitos · ${fmt(R.totals.power.cable,0)} m de conductor`,`${R.totals.power.tomas} tomas · ${R.totals.power.luz} luces · ΔV máx. ${fmt(worst,2)} %`];
   log('power',`Tablero en ${tLv.name}: ${circs.length} circuitos, demanda ${fmt(dem/1000,2)} kW, general ${brMain} A`)}
 
@@ -422,14 +493,15 @@ function compute(P,N,opts={}){
     ck('fire','Cobertura de rociadores',nf.ref,`${nx*ny} × ${fmt(cov,1)} m² · sep. ${fmt(Math.max(sx,sy),1)} m`,`≤ ${nf.area_max} m² · ≤ ${nf.sep_max} m`,ok?'ok':'fail',`${r.name} · ${l.name}`)}}
    const runF=(l,root,terms)=>{const g=G[l.id],cost=costMap(g,'fire',occ[l.id],BIT.fire),T=buildTree(g,'fire',root,terms,cost,st,occ[l.id],BIT.fire);const dOf=c=>T.load[c]>=2?25:20;const S=treeSegs(T,dOf);
     S.segs.forEach(s=>{lenBy[s.d]=(lenBy[s.d]||0)+s.len});d2('fire','fire',l,S.segs);routesD2('fire','fire',l,T);add3('fire',l,S.segs,Zs.fire(l),d=>d/2000+0.003);return T};
-   const nets={};let shLoad=0;
-   for(const l of lv){if(l===mLv||!byLv[l.id].length)continue;const g=G[l.id];nets[l.id]=runF(l,shc(l,'fire'),byLv[l.id].map(h=>({c:g.cell(h.x,h.y),load:1,h})));shLoad+=byLv[l.id].length}
-   {const g=G[mLv.id];const terms=byLv[mLv.id].map(h=>({c:g.cell(h.x,h.y),load:1,h}));if(shLoad)terms.push({c:shc(mLv,'fire'),load:shLoad,shaft:true});
-    if(terms.length){nets[mLv.id]=runF(mLv,g.cell(pts.medidor.x+0.3,pts.medidor.y),terms);vert('fire',mLv.id,rnd2(pts.medidor.x+0.3),pts.medidor.y,mLv.elev+0.3,Zs.fire(mLv),0.0145,25)}}
-   if(shLoad){const others=lv.filter(l=>l!==mLv&&nets[l.id]);const zt=Math.max(...others.map(l=>Zs.fire(l)));vert('fire','all',shx('fire'),sh.y,Zs.fire(mLv),zt,0.0145,25);lenBy[25]=(lenBy[25]||0)+zt-Zs.fire(mLv)}
-   let far=0,farZ=0;for(const l of lv){const T=nets[l.id];if(!T)continue;for(const t of T.terms){if(!t.h)continue;nh++;vert('fire',l.id,t.h.x,t.h.y,Zs.fire(l),Zs.fire(l)-0.08,0.01,15,1);node('fire','head',l,t.h.x,t.h.y,'R');
-     const L=(chainCells(T,t.c).length-1)*CELL+(l!==mLv?Math.abs(l.elev-mLv.elev)+(chainCells(nets[mLv.id],shc(mLv,'fire')).length-1)*CELL:0);if(L>far){far=L;farZ=Zs.fire(l)}}}
-   if(nh){const q=nf.n_diseno*nf.q_rociador/60/1000;let p=0,Dn=25;for(const [dn,di] of [[25,0.0225],[32,0.0282],[40,0.0354],[50,0.0443]]){const hfv=10.67*far*Math.pow(q,1.852)/(Math.pow(150,1.852)*Math.pow(di,4.87));p=PR.presion-(farZ-(mLv.elev+0.3))-PR.f_acc*hfv;Dn=dn;if(p>=nf.p_min_rociador)break}
+   const nets={};let shLoad=0;const fL=SHS.map(()=>0);
+   for(const l of lv){if(l===mLv||!byLv[l.id].length)continue;const g=G[l.id];nets[l.id]=[];split(byLv[l.id],h=>[h.x,h.y]).forEach((hp,i)=>{if(!hp.length)return;const T=runF(l,shc(l,'fire',i),hp.map(h=>({c:g.cell(h.x,h.y),load:1,h})));T.si=i;nets[l.id].push(T);fL[i]+=hp.length;shLoad+=hp.length})}
+   {const g=G[mLv.id];const terms=byLv[mLv.id].map(h=>({c:g.cell(h.x,h.y),load:1,h}));SHS.forEach((s,i)=>{if(fL[i])terms.push({c:shc(mLv,'fire',i),load:fL[i],shaft:true})});
+    if(terms.length){nets[mLv.id]=[runF(mLv,g.cell(pts.medidor.x+0.3,pts.medidor.y),terms)];vert('fire',mLv.id,rnd2(pts.medidor.x+0.3),pts.medidor.y,mLv.elev+0.3,Zs.fire(mLv),0.0145,25)}}
+   SHS.forEach((s,i)=>{if(!fL[i])return;const zz=lv.filter(l=>(nets[l.id]||[]).some(T=>T.si===i)).map(l=>Zs.fire(l)).concat([Zs.fire(mLv)]);const z0=Math.min(...zz),z1=Math.max(...zz);vert('fire','all',shx('fire',i),s.y,z0,z1,0.0145,25);lenBy[25]=(lenBy[25]||0)+z1-z0});
+   const M0=(nets[mLv.id]||[])[0];
+   let far=0,farZ=0;for(const l of lv){for(const T of nets[l.id]||[]){for(const t of T.terms){if(!t.h)continue;nh++;vert('fire',l.id,t.h.x,t.h.y,Zs.fire(l),Zs.fire(l)-0.08,0.01,15,1);node('fire','head',l,t.h.x,t.h.y,'R');
+     const L=(chainCells(T,t.c).length-1)*CELL+(l!==mLv&&M0?Math.abs(l.elev-mLv.elev)+(chainCells(M0,shc(mLv,'fire',T.si)).length-1)*CELL:0);if(L>far){far=L;farZ=Zs.fire(l)}}}}
+   if(nh){const q=nf.n_diseno*nf.q_rociador/60/1000;let p=0,Dn=25;for(const [dn,di] of [[25,0.0225],[32,0.0282],[40,0.0354],[50,0.0443]]){const hfv=10.67*far*Math.pow(q,1.852)/(Math.pow(150,1.852)*Math.pow(di,4.87));p=PR.presion+PUMP-(farZ-(mLv.elev+0.3))-PR.f_acc*hfv;Dn=dn;if(p>=nf.p_min_rociador)break}
     if(Dn>25){fix('fire',`La red de rociadores se aumentó a Ø${Dn} mm en la troncal para llegar con ${fmt(p,1)} m.c.a. al rociador más alejado.`);if(lenBy[25]){lenBy[Dn]=(lenBy[Dn]||0)+lenBy[25];delete lenBy[25]}for(const k in P3.fire)P3.fire[k].d===25&&(P3.fire[k].d=Dn,P3.fire[k].r=Dn/2000+0.003);R.D2.fire.forEach(s=>{if(s.d===25)s.d=Dn})}
     ck('fire','Presión en el rociador más desfavorable',nf.ref,`${fmt(p,1)} m.c.a.${Dn>25?' · troncal Ø'+Dn:''}`,`≥ ${nf.p_min_rociador} m.c.a. (${nf.n_diseno} × ${nf.q_rociador} L/min)`,p>=nf.p_min_rociador?(Dn>25?'fix':'ok'):'fail',`recorrido ${fmt(far,1)} m`);
     log('fire',`${nh} rociadores; cálculo con ${nf.n_diseno} rociadores: ${fmt(p,1)} m.c.a. en el más alejado`)}
@@ -451,7 +523,9 @@ function compute(P,N,opts={}){
  return R}
 
 /* Dos pasadas: agentes independientes → el coordinador detecta choques → re-ruteo coordinado */
-function computeFull(P,N){const R1=compute(P,N,{noAvoid:true,skipClash:true});if(R1.error)return R1;
+function computeFull(P,N){const nR=P.levels.reduce((a,l)=>a+l.rooms.length,0),big=nR>70||P.levels.length>4;
+ if(big){const R=compute(P,N);if(R.error)return R;R.first=[];R.p3first=null;R.big=true;const c=R.checks.find(x=>x.sys==='coord');if(c)c.where=(R.clash.steps.length?`${R.clash.steps.length} desvíos locales · `:'')+'proyecto grande: coordinación en una pasada';return R}
+ const R1=compute(P,N,{noAvoid:true,skipClash:true});if(R1.error)return R1;
  const first=detect(R1.p3);const R=compute(P,N);if(R.error)return R;
  const lv=P.levels.slice().sort((a,b)=>a.elev-b.elev);
  const where=pt=>{let l=lv[0];for(const x of lv)if(pt[2]>=x.elev-0.45)l=x;const r=roomOfPt(l,pt[0],pt[1]);return `${r?r.name:'muro / ducto'} · ${l.name}`};

@@ -1,16 +1,20 @@
 # Trazo MEP
 
-**Diseño y verificación automática de instalaciones para viviendas** — un producto de **NexusCode Systems**.
+**Diseño y verificación automática de instalaciones para viviendas y edificios** — un producto de **NexusCode Systems**.
 
-Trazo MEP toma la planta de una vivienda (PDF o imagen), y cinco agentes trazan en paralelo las instalaciones de **desagüe, agua fría y caliente, electricidad, ventilación mecánica y protección contra incendio**. Un coordinador detecta y resuelve los cruces entre sistemas y el resultado se revisa en un modelo 3D, con verificaciones de norma, metrados y cuadro de cargas.
+Trazo MEP toma las plantas de una vivienda o de un edificio (PDF, DXF, DWG o imagen), y cinco agentes trazan en paralelo las instalaciones de **desagüe, agua fría y caliente, electricidad, ventilación mecánica y protección contra incendio**. Un coordinador detecta y resuelve los cruces entre sistemas y el resultado se revisa en un modelo 3D, con verificaciones de norma, metrados y cuadro de cargas.
 
 > Prototipo. Los cálculos son un predimensionamiento automático y no reemplazan el proyecto firmado por profesionales habilitados. Los valores de las normativas incluidas son referenciales: verifica la versión vigente.
 
 ## Funciones
 
-- **Importación automática**: al subir el PDF de arquitectura (vectorial, exportado desde CAD) la app lee los nombres de los recintos y los títulos de planta, detecta los muros, deduce la escala comparando con las cotas y arma un proyecto editable con un nivel por planta, aparatos sanitarios propuestos por tipo de recinto, medidor, salida, tablero y ducto. Para imágenes o PDF escaneados: subir como fondo, calibrar y usar **Detectar ambientes** (usa IA para leer los nombres).
+- **Importación de planos por piso**: sube un PDF de varias hojas (por ejemplo el compilado del proyecto), varios archivos a la vez o un archivo de AutoCAD. La app revisa todas las hojas, encuentra cada planta por su título (*PLANTA NIVEL 2*, *PISO 1*, *SUBTERRÁNEO*…) y muestra una lista para elegir qué pisos traer, con vista previa, nombre, número de nivel y escala editables. Marca las plantas repetidas (compilado + hoja suelta) y las secundarias (planos de ubicación, cortes).
+- **Lectura de muros**: detecta muros de doble línea o rellenos e ignora muebles, cotas y ejes; cada recinto se mide desde su nombre hasta los muros. Plantas a distintas escalas (1:100, 1:125…) se alinean entre sí por los textos comunes (ejes, letras de corte). Los **pisos tipo** se reconocen y comparten la misma geometría.
+- **AutoCAD**: DXF (texto, cualquier versión) y DWG. En DXF/DWG se usan las capas: si existen capas de muros (*MURO*, *WALL*, *TABIQUE*…) solo esas cuentan como muro; mobiliario, cotas, ejes y puertas se ignoran. El lector DWG es [libredwg-web](https://github.com/mlightcad/libredwg-web) (GPL-3.0) y se descarga desde jsDelivr solo cuando se sube un DWG.
+- **Edificios**: un ducto vertical por grupo de baños y cocinas (editable, se pueden agregar más), montantes por ducto, equipo de presión (hidropack) y válvulas reductoras cuando la altura lo exige, subtableros por piso con alimentadores, shafts colectivos de extracción, colectores y diámetros mayores cuando la normativa se queda corta. Proyectos de cientos de recintos se calculan en segundos y el 3D muestra cada piso por separado si se quiere.
+- Para imágenes o PDF escaneados: subir como fondo, calibrar y usar **Detectar ambientes** (usa IA para leer los nombres).
 - **Plano**: sube un PDF o imagen, calibra la escala con una cota conocida y dibuja ambientes, aparatos, puertas, ventanas y escaleras. Los muros se generan solos con su espesor.
-- **Agentes**: ruteo real sobre grilla de 10 cm (Dijkstra con penalización de giros y muros), árboles de distribución por sistema y dimensionamiento por unidades de descarga, unidades de gasto (Hunter), Hazen-Williams, caída de tensión y capacidad de conductores.
+- **Agentes**: ruteo real sobre grilla de 10 cm (20–25 cm en edificios grandes) (Dijkstra con penalización de giros y muros), árboles de distribución por sistema y dimensionamiento por unidades de descarga, unidades de gasto (Hunter), Hazen-Williams, caída de tensión y capacidad de conductores.
 - **Coordinación 3D**: detección de interferencias entre sistemas y re-ruteo automático.
 - **Normativas intercambiables**: Chile (RIDAA / NCh Elec. 4/2003 / OGUC), Perú (RNE IS.010 / EM.010 / A.130) y EE.UU. (IPC / NEC / NFPA 13D). Se pueden duplicar, editar, importar y exportar en JSON, y comparar en el mismo proyecto.
 - **Entregables**: tabla de verificaciones, correcciones aplicadas, metrados (CSV), cuadro de cargas (CSV), informe HTML e imagen PNG del modelo 3D.
@@ -25,13 +29,15 @@ public/
   js/engine.js        Motor de cálculo, normativas y muros
   js/example.js       Proyecto de ejemplo
   js/editor.js        Núcleo de la app y editor de planos
+  js/importer.js      Lectura de planos PDF por hojas y por piso
+  js/cad.js           Lectura de DXF y DWG
   js/visor3d.js       Modelo 3D (three.js)
   js/app.js           Agentes, verificaciones, metrados, normativas, proyectos
   assets/planos/      Plantas del proyecto de ejemplo
 firebase.json         Configuración de Firebase Hosting
 ```
 
-Sin dependencias ni compilación: es HTML, CSS y JavaScript. three.js y pdf.js se cargan desde cdnjs cuando se necesitan.
+Sin dependencias ni compilación: es HTML, CSS y JavaScript. three.js y pdf.js se cargan desde cdnjs cuando se necesitan; el lector DWG desde jsDelivr.
 
 ## Probar en local
 

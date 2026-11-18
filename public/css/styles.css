@@ -137,7 +137,7 @@ label.f input,label.f select{color:var(--fg)}
 .msg3{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);text-align:center;padding:20px}
 .cl-h{display:flex;align-items:baseline;gap:8px}
 .cl-h b{font-family:var(--f-disp);font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
-.cl-h b.bad{color:var(--bad)} .cl-h b.ok{color:var(--ok)}
+.cl-h b.bad{color:var(--bad)} .cl-h b.ok{color:var(--ok)} .cl-h b.warn{color:var(--warn)}
 .clist{display:flex;flex-direction:column;gap:4px;max-height:240px;overflow:auto;font-size:12px}
 .ci{display:grid;grid-template-columns:14px minmax(0,1fr);gap:6px;padding:5px 6px;border-radius:6px;background:var(--plan)}
 .ci .ic{color:var(--bad)} .ci.ok .ic{color:var(--ok)}

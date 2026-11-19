@@ -16,7 +16,7 @@ function init3D(){if(V3.R)return;const cv=$('#c3d');const R3=new THREE.WebGLRend
  const orbit=(dx,dy)=>{st.theta-=dx*.006;st.phi=Math.max(.02,Math.min(Math.PI-.02,st.phi-dy*.005))};
  const zoom=f=>{st.r=Math.max(0.6,Math.min(260,st.r*f))};
  cv.addEventListener('pointerdown',e=>{PTR.set(e.pointerId,[e.clientX,e.clientY]);st.drag=[e.clientX,e.clientY];st.btn=e.button;st.moved=0;st.auto=false;st.pinch=null;cv.setPointerCapture(e.pointerId)});
- cv.addEventListener('pointermove',e=>{if(!PTR.has(e.pointerId))return;const prev=PTR.get(e.pointerId);PTR.set(e.pointerId,[e.clientX,e.clientY]);
+ cv.addEventListener('pointermove',e=>{if(!PTR.has(e.pointerId))return;st.lastInput=performance.now();const prev=PTR.get(e.pointerId);PTR.set(e.pointerId,[e.clientX,e.clientY]);
   if(PTR.size>=2){const [p1,p2]=[...PTR.values()];const d=Math.hypot(p1[0]-p2[0],p1[1]-p2[1]),m=[(p1[0]+p2[0])/2,(p1[1]+p2[1])/2];
    if(st.pinch){zoom(st.pinch.d/Math.max(1,d));pan((m[0]-st.pinch.m[0])/2,(m[1]-st.pinch.m[1])/2)}st.pinch={d,m};st.moved+=10;return}
   const dx=e.clientX-prev[0],dy=e.clientY-prev[1];st.moved+=Math.abs(dx)+Math.abs(dy);
@@ -24,12 +24,17 @@ function init3D(){if(V3.R)return;const cv=$('#c3d');const R3=new THREE.WebGLRend
  const up=e=>{const was=PTR.has(e.pointerId);PTR.delete(e.pointerId);if(PTR.size<2)st.pinch=null;if(!PTR.size){st.drag=null;if(was&&st.moved<4&&e.type==='pointerup')pick3(e)}};
  cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
  cv.addEventListener('contextmenu',e=>e.preventDefault());
- cv.addEventListener('wheel',e=>{e.preventDefault();zoom(1+Math.max(-0.5,Math.min(0.5,e.deltaY*.001)))},{passive:false});
+ cv.addEventListener('wheel',e=>{e.preventDefault();st.lastInput=performance.now();zoom(1+Math.max(-0.5,Math.min(0.5,e.deltaY*.001)))},{passive:false});
  cv.addEventListener('dblclick',e=>{const r=cv.getBoundingClientRect();const m=new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);const rc=new THREE.Raycaster();rc.setFromCamera(m,cam);
   const vis=o=>{for(let x=o;x;x=x.parent)if(x.visible===false)return false;return true};const hits=rc.intersectObjects(V3.root.children,true).filter(h=>vis(h.object)&&!(h.object.material&&h.object.material.transparent&&h.object.material.opacity<0.3));
   if(hits.length){st.tg.copy(hits[0].point);st.r=Math.min(st.r,7);st.auto=false}});
  cv.addEventListener('keydown',e=>{const k=e.key;let h=true;if(k==='ArrowLeft')orbit(-25,0);else if(k==='ArrowRight')orbit(25,0);else if(k==='ArrowUp')orbit(0,-25);else if(k==='ArrowDown')orbit(0,25);else if(k==='+'||k==='=')zoom(0.85);else if(k==='-')zoom(1.18);else h=false;if(h){e.preventDefault();st.auto=false}});
- const loop=()=>{requestAnimationFrame(loop);if(ST.view!=='modelo')return;const r=cv.getBoundingClientRect();if(r.width<2)return;R3.setSize(r.width,r.height,false);cam.aspect=r.width/r.height;cam.updateProjectionMatrix();
+ // dibuja solo cuando algo cambia; mientras se arrastra un modelo pesado baja la resolución y la recupera al soltar
+ const DPR0=Math.min(devicePixelRatio||1,2);let lastKey='',lastW=0,lastH=0,lastPR=0;
+ const loop=()=>{requestAnimationFrame(loop);if(ST.view!=='modelo')return;const r=cv.getBoundingClientRect();if(r.width<2)return;
+  const busy=PTR.size>0||(performance.now()-(st.lastInput||0)<180),pr=V3.heavy&&busy?1:Math.min(DPR0,V3.heavy?1.5:2);
+  if(r.width!==lastW||r.height!==lastH||pr!==lastPR){R3.setPixelRatio(pr);R3.setSize(r.width,r.height,false);cam.aspect=r.width/r.height;cam.updateProjectionMatrix();lastW=r.width;lastH=r.height;lastPR=pr;V3.dirty=true}
+  const key=[st.theta,st.phi,st.r,st.tg.x,st.tg.y,st.tg.z].join(',');if(!V3.dirty&&!st.auto&&key===lastKey&&!V3.mk.children.length)return;lastKey=key;V3.dirty=false;
   if(st.auto&&!RM)st.theta+=0.0012;cam.position.set(st.tg.x+st.r*Math.sin(st.phi)*Math.sin(st.theta),st.tg.y+st.r*Math.cos(st.phi),st.tg.z+st.r*Math.sin(st.phi)*Math.cos(st.theta));cam.lookAt(st.tg);
   {const under=st.phi>Math.PI/2+0.05;if(under!==V3.under){V3.under=under;applyGhost()}}
   const now=performance.now();V3.mk.children.forEach(m=>{m.quaternion.copy(cam.quaternion);m.scale.setScalar(1+.12*Math.sin(now/160));if(m.userData.fade)m.material.opacity=Math.max(0,1-(now-m.userData.fade)/700)});
@@ -58,7 +63,7 @@ function build3D(R){const P=ST.P,root=V3.root,mats=M3();disposeGroup(root);while
  const aG=new THREE.Group();root.add(aG);V3.all=aG;
  // techo
  const rG=new THREE.Group();root.add(rG);V3.roof=rG;buildRoof();
- V3.p3=R.p3first||R.p3;buildNets(V3.p3);applyView();frame3('iso',true);renderSide3('first');
+ V3.p3=R.p3first||R.p3;buildNets(V3.p3);{let n=0;for(const k in R.p3)n+=R.p3[k].length;V3.heavy=n>3000||lvs.length>6}applyView();frame3('iso',true);renderSide3('first');
  if(R.first&&R.first.length){R.first.forEach(cl=>{const m=new THREE.Mesh(new THREE.TorusGeometry(.32,.04,8,28),new THREE.MeshBasicMaterial({color:new THREE.Color(css('--bad')),transparent:true,depthTest:false}));m.renderOrder=9;m.userData.pt=cl.pt;V3.mk.add(m)});placeMarkers();
   clearTimeout(V3.tm);V3.tm=setTimeout(()=>{buildNets(R.p3);applyView();V3.mk.children.forEach((m,i)=>{m.material.color.set(css('--ok'));m.userData.fade=performance.now()+300+i*90});renderSide3('final')},RM?50:2600)}
  else renderSide3('final')}
@@ -83,7 +88,7 @@ function buildLevelStatic(l,g,c,next){const mats=M3();const st=new THREE.Group()
   for(let i=0;i<n;i++){const top=(i+1)*rise;let a0,a1;if(s.dir==='-y'||s.dir==='-x'){a1=(alongY?s.y1:s.x1)-i*run;a0=a1-run}else{a0=(alongY?s.y0:s.x0)+i*run;a1=a0+run}
    if(alongY)box(s.x1-s.x0,0.08,a1-a0,mats.stair,(s.x0+s.x1)/2-c[0],l.elev+top-0.04,(a0+a1)/2-c[1],st);else box(a1-a0,0.08,s.y1-s.y0,mats.stair,(a0+a1)/2-c[0],l.elev+top-0.04,(s.y0+s.y1)/2-c[1],st)}});
  // aparatos
- l.fixtures.forEach(f=>fixture3D(l,f,st,c))}
+ l.fixtures.forEach(f=>fixture3D(l,f,st,c));mergeStatic(st)}
 function fixture3D(l,f,g,c){const mats=M3(),E=l.elev,X=f.x-c[0],Z=f.y-c[1];const r=roomOfPt(l,f.x,f.y);let nx=0,nz=0;
  if(r){const ds=[[f.x-r.x0,-1,0],[r.x1-f.x,1,0],[f.y-r.y0,0,-1],[r.y1-f.y,0,1]].sort((a,b)=>a[0]-b[0])[0];nx=ds[1];nz=ds[2]}
  switch(f.type){
@@ -96,6 +101,20 @@ function fixture3D(l,f,g,c){const mats=M3(),E=l.elev,X=f.x-c[0],Z=f.y-c[1];const
   case 'lavadero':box(.6,.85,.5,mats.fix,X,E+.43,Z,g);break;
   case 'terma':{const t=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.9,18),mats.fix);t.position.set(X,E+1.65,Z);g.add(t);break}
   case 'extractor':box(.28,.04,.28,mats.fix,X,E+l.h-.02,Z,g);break}}
+// une todas las piezas estáticas de un grupo en una malla por material (miles de objetos → decenas): el 3D gira fluido
+function mergeStatic(g){g.updateMatrixWorld(true);const inv=new THREE.Matrix4().copy(g.matrixWorld).invert();const MB=new Map(),LB=new Map(),drop=[];const m4=new THREE.Matrix4(),n3=new THREE.Matrix3(),v=new THREE.Vector3();
+ g.traverse(o=>{if(o===g)return;
+  if(o.isMesh){const mats=Array.isArray(o.material)?o.material:[o.material];if(mats.some(m=>m.map)||o.userData.keep)return;const geo=o.geometry,P=geo.attributes.position,N=geo.attributes.normal;if(!P||!N)return;
+   m4.multiplyMatrices(inv,o.matrixWorld);n3.getNormalMatrix(m4);const I=geo.index;const groups=geo.groups.length?geo.groups:[{start:0,count:I?I.count:P.count,materialIndex:0}];const base={};
+   for(const gr of groups){const mat=mats[gr.materialIndex]||mats[0];let b=MB.get(mat);if(!b){b={mat,pos:[],nor:[],idx:[],vc:0};MB.set(mat,b)}
+    if(base[mat.uuid]===undefined){base[mat.uuid]=b.vc;for(let i=0;i<P.count;i++){v.fromBufferAttribute(P,i).applyMatrix4(m4);b.pos.push(v.x,v.y,v.z);v.fromBufferAttribute(N,i).applyMatrix3(n3).normalize();b.nor.push(v.x,v.y,v.z)}b.vc+=P.count}
+    const o0=base[mat.uuid];for(let i=gr.start;i<gr.start+gr.count;i++)b.idx.push((I?I.getX(i):i)+o0)}
+   drop.push(o)}
+  else if(o.isLineSegments){const P=o.geometry.attributes.position;if(!P)return;m4.multiplyMatrices(inv,o.matrixWorld);let b=LB.get(o.material);if(!b){b=[];LB.set(o.material,b)}const I=o.geometry.index;const n=I?I.count:P.count;
+   for(let i=0;i<n;i++){v.fromBufferAttribute(P,I?I.getX(i):i).applyMatrix4(m4);b.push(v.x,v.y,v.z)}drop.push(o)}});
+ drop.forEach(o=>{o.parent.remove(o);o.geometry.dispose()});
+ MB.forEach(b=>{const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(b.pos,3));geo.setAttribute('normal',new THREE.Float32BufferAttribute(b.nor,3));geo.setIndex(b.vc>65000?new THREE.Uint32BufferAttribute(b.idx,1):new THREE.Uint16BufferAttribute(b.idx,1));geo.computeBoundingSphere();g.add(new THREE.Mesh(geo,b.mat))});
+ LB.forEach((arr,mat)=>{const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(arr,3));geo.computeBoundingSphere();g.add(new THREE.LineSegments(geo,mat))});V3.dirty=true}
 function buildWalls(l){const L=V3.lv[l.id],g=L.walls,mats=M3(),c=V3.c;disposeGroup(g);if(VOPT.walls==='none')return;
  const cut=VOPT.walls==='cut',top=cut?Math.min(VOPT.cut,l.h):l.h,E=l.elev;const side=cut?mats.wall:mats.wallT,cap=cut?mats.wallCap:mats.wallTCap;const ms=[side,side,cap,cap,side,side];
  const add=(b,z0,z1)=>{if(z1-z0<0.01)return;const geo=new THREE.BoxGeometry(b[2]-b[0],z1-z0,b[3]-b[1]);const m=new THREE.Mesh(geo,ms);m.position.set((b[0]+b[2])/2-c[0],E+(z0+z1)/2,(b[1]+b[3])/2-c[1]);g.add(m);
@@ -103,7 +122,7 @@ function buildWalls(l){const L=V3.lv[l.id],g=L.walls,mats=M3(),c=V3.c;disposeGro
  const wm=wallModel(l);wm.full.forEach(b=>add(b,0,top));
  wm.ops.forEach(({o,boxes})=>{const s=o.sill||0,h=o.h||2.0;boxes.forEach(b=>{
   if(o.type==='ventana'){add(b,0,Math.min(s,top));if(top>s+h)add(b,s+h,top);const g0=s,g1=Math.min(s+h,top);if(g1>g0){const horiz=(b[2]-b[0])>=(b[3]-b[1]);const gb=horiz?[b[0],(b[1]+b[3])/2-0.01,b[2],(b[1]+b[3])/2+0.01]:[(b[0]+b[2])/2-0.01,b[1],(b[0]+b[2])/2+0.01,b[3]];const gm=new THREE.Mesh(new THREE.BoxGeometry(gb[2]-gb[0],g1-g0,gb[3]-gb[1]),mats.glass);gm.position.set((gb[0]+gb[2])/2-c[0],E+(g0+g1)/2,(gb[1]+gb[3])/2-c[1]);g.add(gm)}}
-  else{const dt=o.type==='vano'?Math.max(h,2.1):h;if(top>dt)add(b,dt,top)}})})}
+  else{const dt=o.type==='vano'?Math.max(h,2.1):h;if(top>dt)add(b,dt,top)}})});mergeStatic(g)}
 function buildRoof(){const g=V3.roof;disposeGroup(g);const P=ST.P;if(!VOPT.roof)return;const lvs=lvOrder(),t=lvs[lvs.length-1];const rs=t.rooms.filter(r=>r.type!=='balcon');if(!rs.length)return;
  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;rs.forEach(r=>{x0=Math.min(x0,r.x0);y0=Math.min(y0,r.y0);x1=Math.max(x1,r.x1);y1=Math.max(y1,r.y1)});x0-=0.35;x1+=0.35;y0-=0.35;y1+=0.35;
  const rh=(P.roof&&P.roof.h)||0.85,zb=t.elev+t.h+0.15,c=V3.c,xm=(x0+x1)/2;const v=(x,y,z)=>V([x,y,z],c);
@@ -127,8 +146,8 @@ function buildNets(P3){Object.values(V3.lv).forEach(L=>disposeGroup(L.nets));dis
  B.forEach(b=>{if(!b.vc)return;const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(b.pos,3));geo.setAttribute('normal',new THREE.Float32BufferAttribute(b.nor,3));
   geo.setIndex(b.vc>65000?new THREE.Uint32BufferAttribute(b.idx,1):new THREE.Uint16BufferAttribute(b.idx,1));geo.computeBoundingSphere();
   const m=new THREE.Mesh(geo,mat(b.k));m.userData={k:b.k,tri:Int32Array.from(b.tri),info:b.info};if(b.k==='power'||b.k==='vent')m.material.side=THREE.FrontSide;else if(big)m.material.side=THREE.DoubleSide;b.g.add(m);V3.netMeshes.push(m)})}
-function applyGhost(){const m=M3();const g=VOPT.ghost||V3.under;m.slab.transparent=g;m.slab.opacity=g?0.18:1;m.slab.depthWrite=!g;m.slab.needsUpdate=true;if(V3.ground)V3.ground.visible=VOPT.ground&&!V3.under}
-function applyView(){const lvs=lvOrder();lvs.forEach(l=>{const L=V3.lv[l.id];if(!L)return;L.g.position.y=lvOff(l);L.g.visible=LEGLV[l.id]!==false;L.nets.children.forEach(m=>m.visible=LEG3[m.userData.k])});
+function applyGhost(){V3.dirty=true;const m=M3();const g=VOPT.ghost||V3.under;m.slab.transparent=g;m.slab.opacity=g?0.18:1;m.slab.depthWrite=!g;m.slab.needsUpdate=true;if(V3.ground)V3.ground.visible=VOPT.ground&&!V3.under}
+function applyView(){V3.dirty=true;const lvs=lvOrder();lvs.forEach(l=>{const L=V3.lv[l.id];if(!L)return;L.g.position.y=lvOff(l);L.g.visible=LEGLV[l.id]!==false;L.nets.children.forEach(m=>m.visible=LEG3[m.userData.k])});
  V3.all.visible=!(VOPT.explode>0)&&!V3.solo;V3.all.children.forEach(m=>m.visible=LEG3[m.userData.k]);V3.ground.visible=VOPT.ground&&!V3.under;V3.roof.visible=VOPT.roof&&!V3.solo;if(V3.roof.children.length)V3.roof.position.y=lvOff(lvs[lvs.length-1]);placeMarkers()}
 function frame3(p,init){const st=V3.st,[x0,y0,x1,y1]=V3.bb,lvs=lvOrder(),t=lvs[lvs.length-1];const H=t.elev+t.h+lvOff(t);st.tg.set(0,H*0.42,0);const span=Math.max(x1-x0,y1-y0);
  const cr=$('#c3d').getBoundingClientRect();

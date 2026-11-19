@@ -181,14 +181,14 @@ function assembleProject(built,opts,base){const P=base||{id:uid('p'),nombre:opts
   const [bx,by]=best.split(',').map(v=>+v*0.4);const sel=c.filter(o=>Math.abs(o[0]-bx)<=0.6&&Math.abs(o[1]-by)<=0.6);if(sel.length<3||sel.length<0.12*c.length)return null;
   return [sel.reduce((a,o)=>a+o[0],0)/sel.length,sel.reduce((a,o)=>a+o[1],0)/sel.length,sel.length]};
  let common=null;const offs=new Map();
- if(!multiOnSheet&&built.length){const withR=built.filter(b=>b.rooms.length);
+ if(built.length){const withR=built.filter(b=>b.rooms.length);
   let refTok,refOff,refMin;
   if(P.importRef&&P.importRef.tok){refTok=P.importRef.tok;refOff=[P.importRef.ox,P.importRef.oy];refMin=P.importRef.min||[0,0]}
   else if(withR.length){const ref=withR.slice().sort((a,b)=>b.rooms.length-a.rooms.length)[0];refTok=tokOf(ref);refOff=minOf(ref);refMin=[0,0];
    offs.set(ref,refOff);P.importRef={ox:refOff[0],oy:refOff[1],sw:ref.sheetW,D:ref.D,tok:refTok.filter(t=>t[0].length<=12).slice(0,500),min:[0,0]}}
   for(const b of withR){if(offs.has(b))continue;const v=vote(refTok,refOff,tokOf(b));
    if(v){offs.set(b,[v[0],v[1]]);continue}
-   if(P.importRef&&P.importRef.D===b.D&&Math.abs(P.importRef.sw-b.sheetW)<0.5){offs.set(b,refOff);continue}
+   if(P.importRef&&P.importRef.D===b.D&&Math.abs(P.importRef.sw-b.sheetW)<0.5&&!(bySheet[b.sheetKey].length>1)){offs.set(b,refOff);continue}
    offs.set(b,minOf(b))}
   common=true}
  const ftf=opts.ftf||2.6,hl=opts.h||2.4;
@@ -234,7 +234,9 @@ function autoShafts(P,labeled){const lv=P.levels.slice().sort((a,b)=>a.elev-b.el
   if(lab){out.push(lab.map(r2));return}const pool=k.r.some(r=>r.type==='bano')?k.r.filter(r=>r.type==='bano'):k.r;const b=pool.sort((a,b)=>Math.hypot(ctr(a)[0]-k.c[0],ctr(a)[1]-k.c[1])-Math.hypot(ctr(b)[0]-k.c[0],ctr(b)[1]-k.c[1]))[0];out.push(edge(b))};
  cl.filter(k=>k.r.some(r=>r.type==='bano')).sort((a,b)=>b.r.length-a.r.length).forEach(place);
  // recintos húmedos de otros pisos lejos de todo ducto (locales, áreas comunes) → ductos propios
- for(const l of lv){if(l===tl)continue;const far=l.rooms.filter(r=>wetT(r)&&Math.min(99,...out.map(p=>Math.abs(p[0]-ctr(r)[0])+Math.abs(p[1]-ctr(r)[1])))>12);const c2=[];
+ const fb=[Math.min(...lv.flatMap(l=>l.rooms.length>20?l.rooms.map(r=>r.x0):[])),Math.min(...lv.flatMap(l=>l.rooms.length>20?l.rooms.map(r=>r.y0):[])),Math.max(...lv.flatMap(l=>l.rooms.length>20?l.rooms.map(r=>r.x1):[])),Math.max(...lv.flatMap(l=>l.rooms.length>20?l.rooms.map(r=>r.y1):[]))];
+ const inFoot=r=>!isFinite(fb[0])||(ctr(r)[0]>fb[0]-3&&ctr(r)[0]<fb[2]+3&&ctr(r)[1]>fb[1]-3&&ctr(r)[1]<fb[3]+3);
+ for(const l of lv){if(l===tl||l.rooms.length<=20)continue;const far=l.rooms.filter(r=>wetT(r)&&inFoot(r)&&Math.min(99,...out.map(p=>Math.abs(p[0]-ctr(r)[0])+Math.abs(p[1]-ctr(r)[1])))>12);const c2=[];
   far.forEach(r=>{const c=ctr(r);const k=c2.find(k=>Math.hypot(k.c[0]-c[0],k.c[1]-c[1])<8);if(k)k.r.push(r);else c2.push({r:[r],c})});c2.forEach(place)}
  return out}
 

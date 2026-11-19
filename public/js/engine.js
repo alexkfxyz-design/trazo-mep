@@ -538,7 +538,10 @@ function computeFull(P,N){const nR=P.levels.reduce((a,l)=>a+l.rooms.length,0),bi
 
 /* ---------- Muros desde los ambientes (raster 5 cm) ---------- */
 const WR=0.05;
-function wallModel(l){const rooms=l.rooms.filter(r=>r.type!=='balcon'),open=l.rooms.filter(r=>r.type==='balcon');
+// los muros se recalculan solo si cambian los ambientes o vanos (pisos tipo comparten el mismo resultado)
+const WMC=new Map();
+function wallModel(l){const k=l.rooms.map(r=>r.type+r.x0+','+r.y0+','+r.x1+','+r.y1).join(';')+'|'+JSON.stringify(l.openings||[]);let v=WMC.get(k);if(v)return v;v=wallModel0(l);WMC.set(k,v);if(WMC.size>80)WMC.delete(WMC.keys().next().value);return v}
+function wallModel0(l){const rooms=l.rooms.filter(r=>r.type!=='balcon'),open=l.rooms.filter(r=>r.type==='balcon');
  if(!rooms.length)return {full:[],ops:[],area:0,bbox:[0,0,0,0]};
  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;rooms.forEach(r=>{x0=Math.min(x0,r.x0);y0=Math.min(y0,r.y0);x1=Math.max(x1,r.x1);y1=Math.max(y1,r.y1)});
  x0-=0.3;y0-=0.3;x1+=0.3;y1+=0.3;const nx=Math.ceil((x1-x0)/WR),ny=Math.ceil((y1-y0)/WR),N=nx*ny;
